@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG_FILE="/var/log/wps-read-aloud-install.log"
+mkdir -p /var/log
+exec > >(tee -a "${LOG_FILE}") 2>&1
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] postinst $*"
+
+systemctl daemon-reload || true
+systemctl enable --now wps-tts.service || true
+
+touch /opt/wps-read-aloud/.wps-read-aloud-zhangjingyao
+
+/usr/bin/wps-read-aloud-register --all-users || true
+
+health_ok=0
+for i in 1 2 3 4 5; do
+  health="$(
+    exec 3<>/dev/tcp/127.0.0.1/19860
+    printf 'GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n' >&3
+    cat <&3
+  )" 2>/dev/null || health=""
+  if echo "${health}" | grep -q '"ok":true' && ! echo "${health}" | grep -q '"engine":"none"'; then
+    echo "wps-read-aloud service health check passed: ${health}"
+    health_ok=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "${health_ok}" -ne 1 ]]; then
+  echo "wps-read-aloud installed, but service health check did not pass yet."
+  echo "The WPS add-in is installed, but read-aloud may not work until the service is healthy."
+  echo "Check logs with: journalctl -u wps-tts.service -n 80 --no-pager"
+fi
+
+selftest_ok=0
+if [[ "${health_ok}" -eq 1 ]]; then
+  selftest="$(
+    exec 3<>/dev/tcp/127.0.0.1/19860
+    printf 'GET /selftest HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n' >&3
+    cat <&3
+  )" 2>/dev/null || selftest=""
+  if echo "${selftest}" | grep -q '"ok":true'; then
+    echo "wps-read-aloud synthesis self-test passed: ${selftest}"
+    selftest_ok=1
+  else
+    echo "wps-read-aloud service is running, but synthesis self-test did not pass."
+    echo "Read-aloud may not work until the bundled engine/model issue is fixed."
+    echo "Check logs with: journalctl -u wps-tts.service -n 120 --no-pager"
+  fi
+fi
+
+echo "wps-read-aloud installed. Developer: zhangjingyao. Release date: 20260515."
+echo "If WPS is already open, restart WPS to load the add-in."
+echo "Install log: ${LOG_FILE}"

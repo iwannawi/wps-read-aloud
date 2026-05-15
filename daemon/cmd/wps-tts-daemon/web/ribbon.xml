@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="ribbon.OnAddinLoad">
+  <ribbon>
+    <tabs>
+      <tab id="wpsReadAloudTab" label="文档朗读">
+        <group id="readGroup" label="朗读">
+          <button id="speakSelection" label="朗读选区" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="朗读选区" supertip="按完整语句朗读当前选中的文字，并同步选中文档中的当前语句。"/>
+          <button id="speakDocument" label="朗读全文" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="朗读全文" supertip="按完整语句朗读当前文档全文。长文档建议优先使用朗读选区。"/>
+        </group>
+        <group id="controlGroup" label="播放控制">
+          <button id="pauseSpeak" label="暂停" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="暂停" supertip="暂停当前朗读。"/>
+          <button id="resumeSpeak" label="继续" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="继续" supertip="继续当前朗读。"/>
+          <button id="stopSpeak" label="停止" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="停止" supertip="停止当前朗读。"/>
+        </group>
+        <group id="settingGroup" label="设置">
+          <dropDown id="rateDropDown" label="语速" onAction="ribbon.OnRateChanged" screentip="语速" supertip="选择朗读语速。">
+            <item id="rate06" label="0.6x"/>
+            <item id="rate08" label="0.8x"/>
+            <item id="rate10" label="1.0x"/>
+            <item id="rate12" label="1.2x"/>
+            <item id="rate14" label="1.4x"/>
+            <item id="rate16" label="1.6x"/>
+          </dropDown>
+          <dropDown id="volumeDropDown" label="音量" onAction="ribbon.OnVolumeChanged" screentip="音量" supertip="选择朗读播放音量。">
+            <item id="volume40" label="40%"/>
+            <item id="volume60" label="60%"/>
+            <item id="volume80" label="80%"/>
+            <item id="volume100" label="100%"/>
+          </dropDown>
+        </group>
+        <group id="serviceGroup" label="服务">
+          <button id="checkStatus" label="状态检查" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="状态检查" supertip="检查本地朗读服务和语音引擎是否可用。"/>
+          <button id="aboutAddin" label="关于" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="关于" supertip="查看加载项名称、版本、开发者和说明文档链接。"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

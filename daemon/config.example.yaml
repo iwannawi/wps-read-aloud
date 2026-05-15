@@ -1,0 +1,8 @@
+listen: "127.0.0.1:19860"
+piper:
+  bin: "/opt/wps-read-aloud/engines/piper/piper"
+  model: "/opt/wps-read-aloud/voices/zh_CN.onnx"
+espeak:
+  bin: "/opt/wps-read-aloud/engines/espeak-ng/espeak-ng"
+  voice: "zh"
+  english_voice: "en"

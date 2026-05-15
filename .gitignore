@@ -1,0 +1,32 @@
+# 构建缓存和临时目录
+.gocache/
+.gocache2/
+build/
+downloads/
+tmp/
+temp/
+*.tmp
+*.bak
+*.log
+
+# 发布产物
+dist/
+*.deb
+
+# 本地工具链和第三方二进制依赖
+tools/
+engines/
+voices/*.onnx
+voices/*.onnx.json
+
+# 系统和编辑器文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python/Node/Go 缓存
+__pycache__/
+*.pyc
+node_modules/
+coverage/

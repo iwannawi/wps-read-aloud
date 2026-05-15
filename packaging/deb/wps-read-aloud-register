@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ADDIN_NAME="wps-read-aloud"
+ADDIN_VERSION="1.0.1"
+DEVELOPER="zhangjingyao"
+RELEASE_DATE="20260515"
+ADDIN_DIR="/opt/wps-read-aloud/addin"
+LOCAL_URL="http://127.0.0.1:19860/addin/index.html"
+
+write_xml_file() {
+  local file="$1"
+  local block="$2"
+  local tmp
+  local cleaned
+  tmp="$(mktemp)"
+  cleaned="$(mktemp)"
+  if [[ -f "${file}" ]]; then
+    awk -v name="${ADDIN_NAME}" '
+      skip {
+        if ($0 ~ /<\/jsplugin>/) {
+          skip=0
+        }
+        next
+      }
+      $0 ~ "<jspluginonline[^>]*name=\"" name "\"" {
+        next
+      }
+      $0 ~ "<jsplugin[^>]*name=\"" name "\"" {
+        if ($0 !~ /\/>/ && $0 !~ /<\/jsplugin>/) {
+          skip=1
+        }
+        next
+      }
+      { print }
+    ' "${file}" > "${cleaned}"
+  else
+    : > "${cleaned}"
+  fi
+  if [[ -s "${cleaned}" ]] && grep -q '</jsplugins>' "${cleaned}"; then
+    awk -v block="${block}" '
+      /<\/jsplugins>/ && !done {
+        print block
+        done=1
+      }
+      { print }
+    ' "${cleaned}" > "${tmp}"
+  else
+    cat > "${tmp}" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<jsplugins>
+${block}
+</jsplugins>
+XML
+  fi
+  if ! grep -q "${ADDIN_NAME}" "${tmp}" || ! grep -q '</jsplugins>' "${tmp}"; then
+    rm -f "${tmp}" "${cleaned}"
+    echo "WPS add-in registration failed while preparing ${file}; original file was not changed." >&2
+    return 1
+  fi
+  cat "${tmp}" > "${file}"
+  rm -f "${tmp}" "${cleaned}"
+}
+
+register_home() {
+  local home_dir="$1"
+  local user_name="$2"
+  local js_dir="${home_dir}/.local/share/Kingsoft/wps/jsaddons"
+  local target_dir="${js_dir}/${ADDIN_NAME}_${ADDIN_VERSION}"
+  local file_url="file://${target_dir}/index.html"
+
+  [[ -d "${home_dir}" ]] || return 0
+
+  install -d -m 0755 "${target_dir}"
+  cp -a "${ADDIN_DIR}/." "${target_dir}/"
+
+  local stamp
+  stamp="$(date +%Y%m%d%H%M%S)"
+  local publish_bak=""
+  local jsplugins_bak=""
+  if [[ -f "${js_dir}/publish.xml" ]]; then
+    publish_bak="${js_dir}/publish.xml.bak.${stamp}"
+    cp "${js_dir}/publish.xml" "${publish_bak}"
+  fi
+  if [[ -f "${js_dir}/jsplugins.xml" ]]; then
+    jsplugins_bak="${js_dir}/jsplugins.xml.bak.${stamp}"
+    cp "${js_dir}/jsplugins.xml" "${jsplugins_bak}"
+  fi
+
+  if ! write_xml_file "${js_dir}/publish.xml" "  <jspluginonline name=\"${ADDIN_NAME}\" type=\"wps\" enable=\"enable_dev\" install=\"${LOCAL_URL}\" url=\"${LOCAL_URL}\" debug=\"\"/>"; then
+    [[ -n "${publish_bak}" ]] && cp "${publish_bak}" "${js_dir}/publish.xml"
+    return 1
+  fi
+  if ! write_xml_file "${js_dir}/jsplugins.xml" "  <jsplugin name=\"${ADDIN_NAME}\" type=\"wps\" url=\"${file_url}\" version=\"${ADDIN_VERSION}\" desc=\"WPS offline read-aloud add-in. Developer: ${DEVELOPER}. Release date: ${RELEASE_DATE}.\">
+    <ribbon file=\"${target_dir}/ribbon.xml\"/>
+  </jsplugin>"; then
+    [[ -n "${publish_bak}" ]] && cp "${publish_bak}" "${js_dir}/publish.xml"
+    [[ -n "${jsplugins_bak}" ]] && cp "${jsplugins_bak}" "${js_dir}/jsplugins.xml"
+    return 1
+  fi
+
+  chown -R "${user_name}:${user_name}" "${js_dir}" 2>/dev/null || true
+  echo "Registered WPS read-aloud add-in for ${user_name}; existing add-in files were preserved and backups were created when needed."
+}
+
+if [[ "${1:-}" = "--all-users" ]]; then
+  while IFS=: read -r name _ uid _ _ home shell; do
+    if [[ "${uid}" -ge 1000 && -d "${home}" && "${shell}" != */nologin && "${shell}" != */false ]]; then
+      register_home "${home}" "${name}"
+    fi
+  done < /etc/passwd
+else
+  register_home "${HOME}" "$(id -un)"
+fi
+
+echo "WPS read-aloud add-in registration completed."

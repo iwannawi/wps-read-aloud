@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1e2329;
+  background: #ffffff;
+}
+
+p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
