@@ -1,7 +1,7 @@
 # 发布说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.4
+版本：1.0.5
 架构：arm64
 开发者：zhangjingyao
 发布时间：20260515
@@ -30,6 +30,7 @@
 - 朗读播放改为由本地服务调用系统播放器完成，规避 WPS 内置浏览器自动播放限制。
 - 升级安装时会强制重启 `wps-tts.service`，避免加载项与旧版后台服务不匹配。
 - 未检测到系统播放器时，使用随包自带 eSpeak NG 直接播放作为兜底。
+- 修复 systemd 服务以桌面用户调用 `pw-play/paplay` 时无法读取临时 WAV 文件的问题。
 - 前端增加按钮连点节流和播放状态保护。
 - 服务端合成请求带超时控制，并在停止时清理语音引擎进程。
 - 低配置机器保护：限制单次最多处理 1000 句，单句最多 1000 字，并在合成等待时提示用户。
@@ -40,7 +41,7 @@
 ## 安装
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.4_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.5_arm64.deb
 ```
 
 如果安装时 WPS 已经打开，请安装完成后重启 WPS。

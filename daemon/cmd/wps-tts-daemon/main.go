@@ -28,7 +28,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.4"
+const AppVersion = "1.0.5"
 
 type Config struct {
 	Listen string
@@ -457,6 +457,9 @@ func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath str
 	if player.bin == "" {
 		return errors.New("no available audio player")
 	}
+	if err := prepareAudioFileForPlayer(wavPath, player); err != nil {
+		return fmt.Errorf("prepare audio file failed: %w", err)
+	}
 	cmd := exec.CommandContext(ctx, player.bin, player.args...)
 	if len(player.env) > 0 {
 		cmd.Env = append(os.Environ(), player.env...)
@@ -473,6 +476,16 @@ func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath str
 		return fmt.Errorf("audio playback failed: %w", err)
 	}
 	return nil
+}
+
+func prepareAudioFileForPlayer(wavPath string, player audioPlayer) error {
+	if wavPath == "" || !player.credential {
+		return nil
+	}
+	if err := os.Chown(wavPath, int(player.uid), int(player.gid)); err != nil {
+		return err
+	}
+	return os.Chmod(wavPath, 0o600)
 }
 
 func (s *Server) speakDirect(ctx context.Context, group *processGroup, req SpeakRequest) error {
@@ -674,6 +687,8 @@ func friendlyError(err error) string {
 		return "备用语音引擎启动失败，已记录到系统日志。请联系管理员检查安装包是否完整。"
 	case strings.Contains(msg, "no available audio player"):
 		return "系统音频播放器不可用，请确认系统已安装 aplay、pw-play 或 paplay，并检查声卡输出是否正常。"
+	case strings.Contains(msg, "prepare audio file failed"):
+		return "系统音频临时文件权限设置失败，请联系管理员查看 wps-tts.service 日志。"
 	case strings.Contains(msg, "audio playback failed"):
 		return "系统音频播放失败，请检查扬声器、声卡输出和系统音量；如仍失败，请联系管理员查看 wps-tts.service 日志。"
 	case errors.Is(err, context.Canceled):
