@@ -1,28 +1,29 @@
-# WPS 离线朗读加载项
+# WPS 文档朗读加载项
 
 目标环境：
 
 - 银河麒麟 V10 ARM64
 - WPS 2023 for Linux 12.1.x
 - 允许安装 WPS JS 加载项
-- WPS JS API 可读取文字选区和全文
+- WPS JS API 可读取 WPS 文字选区和全文
 - 本机允许访问 `127.0.0.1`
 
 本项目采用：
 
-- `addin/`：WPS JS 加载项，提供任务窗格、读取选区/全文、朗读控制
-- `daemon/`：Go 本地服务，监听 `127.0.0.1:19860`
-- `packaging/kylin/`：银河麒麟部署脚本和 systemd 用户服务模板
+- `addin/`：WPS JS 加载项源文件，在 WPS 顶部新增“文档朗读”选项卡。
+- `daemon/`：Go 本地服务，只监听 `127.0.0.1:19860`。
+- `packaging/deb/`：企业交付用 `.deb` 打包脚本和 Debian 控制脚本。
+- `packaging/sync_addin_web.py`：把 `addin/` 同步到 Go embedded web 目录，避免嵌入资源和源加载项不一致。
 
 ## 工作方式
 
 ```text
-WPS 文字 -> JS 加载项 -> http://127.0.0.1:19860 -> Go 服务 -> Piper/eSpeak NG -> 系统音频
+WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Piper/eSpeak NG -> WPS 内置页面播放音频
 ```
 
-Piper 是首选引擎，eSpeak NG 是兜底引擎。所有文本只发送到本机回环地址，不访问外网。
-朗读时按句合成并播放，加载项会在 WPS 文档中选中当前朗读语句；朗读进入下一句时同步选中下一句，WPS 通常会自动滚动到当前选区。
-低配置机器上建议优先使用“朗读选区”；加载项会限制单次句子数量和单句长度，避免超长文档造成长时间等待或资源占用过高。
+Piper 是首选中文离线语音引擎，eSpeak NG 是兜底引擎。所有文本只发送到本机回环地址，不访问外网。
+
+朗读时会按完整语句切分、逐句合成并播放；加载项会在 WPS 文档中选中当前朗读语句，进入下一句时同步选中下一句。低配置机器上建议优先使用“朗读选区”，加载项会限制单次句子数量和单句长度，避免长文档造成长时间等待或资源占用过高。
 
 ## 目录
 
@@ -35,110 +36,33 @@ addin/
 daemon/
   cmd/wps-tts-daemon/main.go
   config.example.yaml
-packaging/kylin/
-  install.sh
-  uninstall.sh
-  wps-tts.service
+packaging/
+  sync_addin_web.py
+  deb/
+  kylin/
+third_party_licenses/
 voices/
   .gitkeep
 ```
 
-## 在银河麒麟上编译本地服务
+## 构建本地服务
 
-安装 Go 1.21+ 后：
-
-```bash
-cd daemon
-go build -o ../dist/wps-tts-daemon ./cmd/wps-tts-daemon
-```
-
-如果在 x86_64 机器上交叉编译 ARM64：
+在项目根目录执行：
 
 ```bash
-cd daemon
-GOOS=linux GOARCH=arm64 go build -o ../dist/wps-tts-daemon ./cmd/wps-tts-daemon
+chmod +x packaging/kylin/build-arm64.sh
+./packaging/kylin/build-arm64.sh
 ```
 
-## 安装运行时依赖
-
-推荐：
-
-```bash
-sudo apt install -y alsa-utils espeak-ng
-```
-
-Piper 请使用目标系统可运行的 ARM64 版本，把可执行文件放到：
+该脚本会先同步 `addin/` 到 `daemon/cmd/wps-tts-daemon/web/`，再交叉编译 Linux ARM64 服务：
 
 ```text
-/opt/wps-read-aloud/engines/piper/piper
+dist/wps-tts-daemon
 ```
 
-把中文模型放到：
+## 准备离线依赖
 
-```text
-/opt/wps-read-aloud/voices/zh_CN.onnx
-/opt/wps-read-aloud/voices/zh_CN.onnx.json
-```
-
-如果 Piper 不存在或模型缺失，服务会自动尝试 eSpeak NG。
-
-## 安装
-
-```bash
-cd packaging/kylin
-chmod +x install.sh uninstall.sh
-./install.sh
-```
-
-安装后检查：
-
-```bash
-curl http://127.0.0.1:19860/health
-```
-
-## WPS 加载项安装
-
-把 `addin/` 注册到 WPS JS 加载项目录，或使用 WPS 提供的加载项管理/调试工具加载 `manifest.xml`。不同政企版 WPS 的加载项目录可能被策略定制，建议以目标机实际 WPS 管理入口为准。
-
-加载项页面默认访问：
-
-```text
-http://127.0.0.1:19860
-```
-
-所以请先启动 `wps-tts-daemon`。
-
-## API
-
-```http
-GET /health
-POST /speak
-POST /stop
-POST /pause
-POST /resume
-GET /voices
-```
-
-`POST /speak` 示例：
-
-```json
-{
-  "text": "需要朗读的内容",
-  "voice": "zh_CN",
-  "rate": 1.0,
-  "volume": 80
-}
-```
-
-## 生成最终 DEB 安装包
-
-最终交付目标是：
-
-```text
-dist/wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
-```
-
-打包前必须放入：
+打包前必须准备：
 
 ```text
 engines/piper/piper
@@ -150,20 +74,82 @@ voices/zh_CN.onnx
 voices/zh_CN.onnx.json
 ```
 
-这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。打包脚本会强制校验，缺任意一项都会失败。
+这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。
 
-构建：
+## 生成 DEB 安装包
 
-```bash
-chmod +x packaging/kylin/build-arm64.sh packaging/deb/build-deb.sh
-./packaging/kylin/build-arm64.sh
-./packaging/deb/build-deb.sh
-```
-
-安装：
+统一使用 Python 打包入口：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
+python3 packaging/deb/build_deb.py
 ```
 
-安装包会安装并启动 `wps-tts.service`，同时为已有普通用户注册 WPS 加载项。若 WPS 已打开，需要重启 WPS。
+兼容脚本 `packaging/deb/build-deb.sh` 和 `packaging/deb/build-deb.ps1` 也会转调同一个 `build_deb.py`，避免不同脚本生成不同安装包。
+
+最终交付文件：
+
+```text
+dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
+```
+
+## 安装
+
+在银河麒麟 V10 ARM64 目标机执行：
+
+```bash
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
+```
+
+安装包会：
+
+- 安装 `/opt/wps-read-aloud`
+- 安装 `/etc/wps-read-aloud/config.yaml`
+- 安装并启动系统服务 `wps-tts.service`
+- 为已有普通用户注册 WPS JS 加载项
+- 写入安装日志 `/var/log/wps-read-aloud-install.log`
+- 安装第三方组件许可证和交付说明到 `/usr/share/doc/wps-read-aloud-zhangjingyao/`
+
+如果 WPS 已打开，需要重启 WPS 后才能加载新的“文档朗读”选项卡。
+
+## 验证
+
+```bash
+systemctl status wps-tts.service --no-pager
+curl http://127.0.0.1:19860/health
+curl http://127.0.0.1:19860/selftest
+```
+
+打开 WPS 文字后，顶部应出现“文档朗读”选项卡。优先点击“状态检查”，如果弹出服务状态提示，说明 Ribbon 按钮回调已经正常触发。
+
+## API
+
+```http
+GET /health
+GET /selftest
+POST /synthesize
+POST /speak
+POST /stop
+POST /pause
+POST /resume
+GET /voices
+```
+
+加载项使用 `POST /synthesize` 获取 WAV 音频；`POST /speak` 作为兼容别名保留。
+
+## Git 管理
+
+源码、脚本、配置、文档和许可证进入 Git。以下内容不进入普通 Git：
+
+- `dist/`
+- `engines/`
+- `tools/`
+- `voices/zh_CN.onnx`
+- `voices/zh_CN.onnx.json`
+- 构建缓存和下载缓存
+
+详细版本管理规则见：
+
+```text
+docs/GIT_WORKFLOW.md
+docs/CODEX_AUTOMATION.md
+```

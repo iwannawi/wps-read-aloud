@@ -9,13 +9,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PKG_NAME = "wps-read-aloud-zhangjingyao"
-VERSION = os.environ.get("VERSION", "1.0.1")
+VERSION = os.environ.get("VERSION", "1.0.2")
 ARCH = os.environ.get("ARCH", "arm64")
 BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{ARCH}"
 DATA = BUILD / "data"
 DEBIAN = BUILD / "DEBIAN"
 OUT = ROOT / "dist"
 DEB = OUT / f"{PKG_NAME}_{VERSION}_{ARCH}.deb"
+ADDIN = ROOT / "addin"
+EMBEDDED_WEB = ROOT / "daemon" / "cmd" / "wps-tts-daemon" / "web"
 
 
 REQUIRED = [
@@ -70,6 +72,12 @@ DUPLICATE_LIBRARY_LINKS = {
     "opt/wps-read-aloud/engines/espeak-ng/lib/libespeak-ng.so.1": "libespeak-ng.so.1.52.0.1",
 }
 
+EXCLUDED_PACKAGE_FILES = {
+    "opt/wps-read-aloud/engines/.gitkeep",
+    "opt/wps-read-aloud/engines/README.md",
+    "opt/wps-read-aloud/voices/.gitkeep",
+}
+
 
 def require(path: str) -> None:
     full = ROOT / path
@@ -85,6 +93,25 @@ def copytree_contents(src: Path, dst: Path) -> None:
             shutil.copytree(item, target, dirs_exist_ok=True)
         else:
             shutil.copy2(item, target)
+
+
+def verify_addin_web_synced() -> None:
+    for src in sorted(ADDIN.rglob("*")):
+        rel = src.relative_to(ADDIN)
+        target = EMBEDDED_WEB / rel
+        if src.is_dir():
+            if not target.is_dir():
+                raise SystemExit(f"embedded web assets are not synchronized: missing directory {target}")
+            continue
+        if not target.is_file():
+            raise SystemExit(f"embedded web assets are not synchronized: missing file {target}")
+        if src.read_bytes() != target.read_bytes():
+            raise SystemExit(f"embedded web assets are not synchronized: {rel}")
+    for target in sorted(EMBEDDED_WEB.rglob("*")):
+        rel = target.relative_to(EMBEDDED_WEB)
+        src = ADDIN / rel
+        if not src.exists():
+            raise SystemExit(f"embedded web assets contain extra file: {target}")
 
 
 def normalize_control() -> None:
@@ -146,6 +173,10 @@ def all_data_names() -> list[str]:
     names: list[str] = []
     for path in sorted(DATA.rglob("*")):
         rel = path.relative_to(DATA).as_posix()
+        if rel in EXCLUDED_PACKAGE_FILES:
+            continue
+        if rel.endswith("/.gitkeep") or "/__pycache__/" in rel or rel.endswith(".pyc"):
+            continue
         names.append(rel)
     return names
 
@@ -169,6 +200,7 @@ def ar_member(name: str, data: bytes) -> bytes:
 def main() -> None:
     for item in REQUIRED:
         require(item)
+    verify_addin_web_synced()
 
     if BUILD.exists():
         shutil.rmtree(BUILD)

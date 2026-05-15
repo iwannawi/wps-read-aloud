@@ -1,86 +1,89 @@
 # 银河麒麟 V10 ARM64 部署清单
 
-## 1. 准备系统依赖
+## 1. 目标环境
+
+- 银河麒麟 V10 ARM64
+- WPS 2023 for Linux 12.1.x
+- 允许安装 WPS JS 加载项
+- 允许访问 `127.0.0.1:19860`
+
+## 2. 推荐安装方式
+
+企业交付优先使用 `.deb`：
 
 ```bash
-sudo apt update
-sudo apt install -y ca-certificates curl alsa-utils espeak-ng
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 ```
 
-如果目标机没有 Go，可以在其他 Linux 机器交叉编译，把 `dist/wps-tts-daemon` 拷贝到目标机。
+安装后会自动：
 
-## 2. 准备 Piper
+- 安装 `/opt/wps-read-aloud`
+- 安装 `/etc/wps-read-aloud/config.yaml`
+- 安装并启动 `wps-tts.service`
+- 为已有普通用户注册 WPS 加载项
+- 写入日志 `/var/log/wps-read-aloud-install.log`
 
-目录约定：
+如果安装前 WPS 已打开，需要重启 WPS。
+
+## 3. 服务检查
+
+```bash
+systemctl status wps-tts.service --no-pager
+curl http://127.0.0.1:19860/health
+curl http://127.0.0.1:19860/selftest
+```
+
+`/health` 应返回可用引擎，`/selftest` 应能生成测试音频。
+
+## 4. WPS 验收
+
+打开 WPS 文字后，顶部应出现“文档朗读”选项卡。
+
+验收点：
+
+- 能看到“文档朗读”选项卡。
+- “朗读选区”能读取当前选中内容。
+- “朗读全文”能读取当前文档正文。
+- “暂停”“继续”“停止”按钮可用。
+- “状态检查”能弹出本地服务状态。
+- 朗读时 WPS 文档中当前语句会被选中，进入下一句时同步更新选区。
+- 服务接口只监听 `127.0.0.1:19860`。
+- 断网状态下 Piper 或 eSpeak NG 能正常工作。
+
+## 5. 手工构建流程
+
+如果需要重新构建交付包：
+
+```bash
+chmod +x packaging/kylin/build-arm64.sh packaging/deb/build-deb.sh
+./packaging/kylin/build-arm64.sh
+python3 packaging/deb/build_deb.py
+```
+
+构建前需要准备：
 
 ```text
 engines/piper/piper
+engines/piper/lib/
+engines/espeak-ng/espeak-ng
+engines/espeak-ng/espeak-ng-data/
+engines/espeak-ng/lib/
 voices/zh_CN.onnx
 voices/zh_CN.onnx.json
 ```
 
-把 ARM64 可执行的 Piper 放到 `engines/piper/piper`，并确认：
+`build-arm64.sh` 会同步 `addin/` 到 Go embedded web 目录；`build_deb.py` 会在打包前再次校验同步状态。
+
+## 6. 加载项注册修复
+
+如果安装后新建了 Linux 用户，或 WPS 加载项注册文件被清理，可在对应用户下执行：
 
 ```bash
-chmod +x engines/piper/piper
-./engines/piper/piper --help
+wps-read-aloud-register
 ```
 
-如果没有 Piper，服务会回退到 `espeak-ng`。
-
-## 3. 编译服务
-
-在项目根目录：
+如果要为所有普通用户重新注册：
 
 ```bash
-chmod +x packaging/kylin/build-arm64.sh
-./packaging/kylin/build-arm64.sh
+sudo wps-read-aloud-register --all-users
 ```
-
-## 4. 安装服务和加载项文件
-
-```bash
-chmod +x packaging/kylin/install.sh packaging/kylin/uninstall.sh
-./packaging/kylin/install.sh
-```
-
-检查服务：
-
-```bash
-systemctl --user status wps-tts.service
-curl http://127.0.0.1:19860/health
-```
-
-测试朗读：
-
-```bash
-curl -X POST http://127.0.0.1:19860/speak \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"你好，这是一段离线朗读测试。","rate":1.0,"volume":80}'
-```
-
-## 5. 安装 WPS 加载项
-
-加载项文件安装位置：
-
-```text
-/opt/wps-read-aloud/addin
-```
-
-在 WPS 2023 for Linux 的加载项管理或调试入口中加载：
-
-```text
-/opt/wps-read-aloud/addin/manifest.xml
-```
-
-如果目标 WPS 环境要求使用指定加载项目录，请把整个 `addin` 目录复制到对应目录，并保持 `manifest.xml`、`ribbon.xml`、`index.html` 的相对位置不变。
-
-## 6. 验收点
-
-- 打开 WPS 文字后能看到“离线朗读”入口或任务窗格
-- 点击“朗读选区”能读取当前选中内容
-- 点击“朗读全文”能读取当前文档正文
-- 服务接口只监听 `127.0.0.1:19860`
-- 断网状态下 Piper 或 eSpeak NG 能正常出声
-- “停止”能中断当前播放
-- “暂停/继续”能控制正在播放的音频进程

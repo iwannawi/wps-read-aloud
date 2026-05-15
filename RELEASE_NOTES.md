@@ -1,7 +1,7 @@
 # 发布说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.1
+版本：1.0.2
 架构：arm64
 开发者：zhangjingyao
 发布时间：20260515
@@ -37,7 +37,7 @@
 ## 安装
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 ```
 
 如果安装时 WPS 已经打开，请安装完成后重启 WPS。

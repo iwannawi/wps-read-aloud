@@ -1,13 +1,13 @@
 # 验收测试说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.1
+版本：1.0.2
 目标环境：银河麒麟 V10 ARM64 + WPS 2023 for Linux
 
 ## 安装测试
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 ```
 
 预期结果：

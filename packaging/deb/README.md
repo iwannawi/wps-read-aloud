@@ -3,8 +3,30 @@
 目标交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 ```
+
+## 唯一规范打包入口
+
+统一使用：
+
+```bash
+python3 packaging/deb/build_deb.py
+```
+
+兼容入口：
+
+```bash
+./packaging/deb/build-deb.sh
+```
+
+Windows 本机兼容入口：
+
+```powershell
+.\packaging\deb\build-deb.ps1
+```
+
+上述兼容入口都会转调 `build_deb.py`。不要再维护多套独立打包逻辑。
 
 ## 必需输入
 
@@ -21,24 +43,26 @@ voices/zh_CN.onnx
 voices/zh_CN.onnx.json
 ```
 
-`engines/` 和 `voices/` 会被原样打进安装包。当前 `build-deb.sh` 会强制校验 Piper、eSpeak NG、动态库目录和中文模型是否存在，避免生成“装得上但不能朗读”的安装包。
+`build_deb.py` 会强制校验上述文件，缺任意一项都会失败，避免生成“装得上但不能朗读”的安装包。
 
-包内服务运行时会给 Piper、eSpeak NG 分别设置 `LD_LIBRARY_PATH`，优先加载 `/opt/wps-read-aloud/engines/*/lib` 下的库。音频播放由 WPS 加载项页面完成，不依赖系统 `aplay`。
+## 构建流程
 
-## 构建
-
-在银河麒麟 ARM64 或其他 Linux 打包机执行：
+推荐流程：
 
 ```bash
 chmod +x packaging/kylin/build-arm64.sh packaging/deb/build-deb.sh
 ./packaging/kylin/build-arm64.sh
-./packaging/deb/build-deb.sh
+python3 packaging/deb/build_deb.py
 ```
+
+`build-arm64.sh` 会同步 `addin/` 到 Go embedded web 目录，再编译 `dist/wps-tts-daemon`。
+
+`build_deb.py` 会在打包前校验 `addin/` 和 `daemon/cmd/wps-tts-daemon/web/` 是否完全一致；不一致时直接失败。
 
 ## 安装
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 ```
 
 安装后会：
@@ -54,9 +78,10 @@ sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.1_arm64.deb
 ## 验证
 
 ```bash
-systemctl status wps-tts.service
+systemctl status wps-tts.service --no-pager
 curl http://127.0.0.1:19860/health
+curl http://127.0.0.1:19860/selftest
 wps-read-aloud-register
 ```
 
-重启 WPS 后查看“离线朗读”加载项。
+重启 WPS 后查看顶部“文档朗读”选项卡。
