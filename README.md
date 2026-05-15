@@ -72,6 +72,8 @@ voices/sherpa/matcha-icefall-en_US-ljspeech/
 voices/sherpa/vocos-22khz-univ.onnx
 ```
 
+合规提示：当前中文模型 `matcha-icefall-zh-baker` 的上游说明提示训练数据集仅限非商业用途。若用于正式政企或商业交付，应先取得商业授权，或替换为许可允许商业分发和使用的中文模型。
+
 这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。
 
 ## 生成 DEB 安装包
@@ -87,7 +89,7 @@ python3 packaging/deb/build_deb.py
 最终交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.10_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 ```
 
 ## 安装
@@ -95,7 +97,7 @@ dist/wps-read-aloud-zhangjingyao_1.0.10_arm64.deb
 在银河麒麟 V10 ARM64 目标机执行：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.10_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 ```
 
 安装包会：

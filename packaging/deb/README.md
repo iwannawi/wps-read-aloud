@@ -3,7 +3,7 @@
 目标交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.10_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 ```
 
 ## 唯一规范打包入口
@@ -60,7 +60,7 @@ python3 packaging/deb/build_deb.py
 ## 安装
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.10_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 ```
 
 安装后会：

@@ -1,7 +1,7 @@
 # 第三方源码获取说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.10
+版本：1.0.11
 开发者：zhangjingyao
 发布时间：20260515
 
@@ -33,4 +33,4 @@
 - `/opt/wps-read-aloud/voices/sherpa/matcha-icefall-en_US-ljspeech/`
 - `/opt/wps-read-aloud/voices/sherpa/vocos-22khz-univ.onnx`
 
-神经语音模型的再分发可能涉及单位内部合规要求，正式对外分发前建议进行法务或合规审核。
+神经语音模型的再分发可能涉及单位内部合规要求，正式对外分发前建议进行法务或合规审核。特别是当前中文模型 `matcha-icefall-zh-baker` 的上游说明提示其训练数据集仅限非商业用途；如用于正式政企或商业交付，应先取得授权或替换为许可允许商业使用的中文模型。

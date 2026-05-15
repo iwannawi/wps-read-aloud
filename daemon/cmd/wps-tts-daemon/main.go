@@ -30,7 +30,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.10"
+const AppVersion = "1.0.11"
 
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
 
@@ -157,7 +157,7 @@ func defaultConfig() Config {
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	engine := detectEngine(s.cfg)
 	probe := loadAudioProbe()
-	players := prioritizedAudioPlayers("", 80)
+	players := prioritizedAudioPlayers("")
 	playerName := ""
 	if probe.Selected != "" {
 		playerName = probe.Selected
@@ -355,9 +355,6 @@ func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 	var err error
 	wavPath, err = s.synthesizeSpeech(ctx, group, req)
 	if err == nil && wavPath != "" {
-		if err := applyWavVolume(wavPath, req.Volume); err != nil {
-			log.Printf("volume adjustment skipped for %s: %v", id, err)
-		}
 		err = s.playAudio(ctx, group, wavPath, req.Volume)
 		if err != nil {
 			log.Printf("system audio playback failed; re-probing audio players: %v", err)
@@ -532,14 +529,19 @@ func (s *Server) runSherpaSegment(ctx context.Context, group *processGroup, req 
 }
 
 func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath string, volume int) error {
-	_ = volume
-	players := prioritizedAudioPlayers(wavPath, volume)
+	playPath, cleanup, err := preparePlaybackWav(wavPath, volume)
+	if err != nil {
+		return fmt.Errorf("prepare audio file failed: %w", err)
+	}
+	defer cleanup()
+
+	players := prioritizedAudioPlayers(playPath)
 	if len(players) == 0 {
 		return errors.New("no available audio player")
 	}
 	var failures []string
 	for _, player := range players {
-		if err := runAudioPlayer(ctx, group, wavPath, player); err != nil {
+		if err := runAudioPlayer(ctx, group, playPath, player); err != nil {
 			failures = append(failures, filepath.Base(player.bin)+": "+err.Error())
 			log.Printf("audio player %s failed: %v", filepath.Base(player.bin), err)
 			continue
@@ -547,6 +549,35 @@ func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath str
 		return nil
 	}
 	return fmt.Errorf("audio playback failed: %s", strings.Join(failures, "; "))
+}
+
+func preparePlaybackWav(wavPath string, volume int) (string, func(), error) {
+	if wavPath == "" || volume <= 0 || volume == 80 {
+		return wavPath, func() {}, nil
+	}
+	data, err := os.ReadFile(wavPath)
+	if err != nil {
+		return "", func() {}, err
+	}
+	tmp, err := os.CreateTemp("", "wps-read-aloud-volume-*.wav")
+	if err != nil {
+		return "", func() {}, err
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return "", func() {}, err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return "", func() {}, err
+	}
+	if err := applyWavVolume(tmpPath, volume); err != nil {
+		os.Remove(tmpPath)
+		return "", func() {}, err
+	}
+	return tmpPath, func() { os.Remove(tmpPath) }, nil
 }
 
 func runAudioPlayer(ctx context.Context, group *processGroup, wavPath string, player audioPlayer) error {
@@ -591,7 +622,7 @@ func (s *Server) probeAudioPlayers(parent context.Context) audioProbeResult {
 	}
 	defer os.Remove(wavPath)
 
-	for _, player := range resolveAudioPlayers(wavPath, 80) {
+	for _, player := range resolveAudioPlayers(wavPath) {
 		name := filepath.Base(player.bin)
 		ctx, cancel := context.WithTimeout(parent, 6*time.Second)
 		group := &processGroup{id: "audio-probe-" + name, cancel: cancel}
@@ -983,8 +1014,8 @@ func writePCM16Wav(w io.Writer, spec wavPCM, pcm []byte) error {
 	return err
 }
 
-func prioritizedAudioPlayers(wavPath string, volume int) []audioPlayer {
-	players := resolveAudioPlayers(wavPath, volume)
+func prioritizedAudioPlayers(wavPath string) []audioPlayer {
+	players := resolveAudioPlayers(wavPath)
 	probe := loadAudioProbe()
 	if probe.Selected == "" {
 		return players
@@ -1002,8 +1033,7 @@ func prioritizedAudioPlayers(wavPath string, volume int) []audioPlayer {
 	return append(preferred, others...)
 }
 
-func resolveAudioPlayers(wavPath string, volume int) []audioPlayer {
-	_ = volume
+func resolveAudioPlayers(wavPath string) []audioPlayer {
 	var players []audioPlayer
 	for _, session := range audioSessions() {
 		if session.pipewire && commandExists("pw-play") {
