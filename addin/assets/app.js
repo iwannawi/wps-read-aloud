@@ -191,12 +191,26 @@
 
   async function request(path, options) {
     var response = await fetch(SERVICE_BASE + path, options || {});
-    var text = await response.text();
-    var data = text ? JSON.parse(text) : {};
+    var data = await parseJsonResponse(response, path);
     if (!response.ok) {
       throw new Error(data.error || response.statusText);
     }
     return data;
+  }
+
+  async function parseJsonResponse(response, path) {
+    var text = await response.text();
+    if (!text) {
+      return {};
+    }
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      if (/301|Moved Permanently|404|page not found|<!doctype|<html/i.test(text)) {
+        throw new Error("本地朗读服务版本不匹配或尚未重启。请重新安装最新安装包，或重启 wps-tts.service 后再打开 WPS。");
+      }
+      throw new Error("本地朗读服务返回了无法识别的数据，接口：" + path + "。请重启 WPS 和 wps-tts.service 后重试。");
+    }
   }
 
   function clearAudio() {
@@ -232,8 +246,7 @@
           volume: volume
         })
       });
-      var text = await response.text();
-      var data = text ? JSON.parse(text) : {};
+      var data = await parseJsonResponse(response, "/play");
       if (!response.ok) {
         throw new Error(data.error || response.statusText);
       }
@@ -379,8 +392,12 @@
   async function onCheckStatus() {
     try {
       var health = await request("/health");
+      if (!health.version) {
+        notify("本地朗读服务版本较旧或尚未重启。请重新安装最新安装包，或重启 wps-tts.service 后再打开 WPS。");
+        return;
+      }
       if (health.ok) {
-        notify("本地朗读服务正常。\n当前引擎：" + health.engine + "\n系统播放器：" + (health.audio_player || "未检测到"));
+        notify("本地朗读服务正常。\n服务版本：" + health.version + "\n当前引擎：" + health.engine + "\n系统播放器：" + (health.audio_player || "未检测到"));
       } else {
         notify("本地朗读服务已启动，但语音引擎不可用。请联系管理员重新安装。");
       }
@@ -394,7 +411,7 @@
       "WPS 文档朗读加载项",
       "开发者：zhangjingyao",
       "发布时间：20260515",
-      "版本：1.0.3",
+      "版本：1.0.4",
       "服务地址：127.0.0.1:19860",
       "",
       "说明文件：",

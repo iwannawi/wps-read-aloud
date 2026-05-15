@@ -1,13 +1,13 @@
 # 验收测试说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.3
+版本：1.0.4
 目标环境：银河麒麟 V10 ARM64 + WPS 2023 for Linux
 
 ## 安装测试
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.3_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.4_arm64.deb
 ```
 
 预期结果：
@@ -15,6 +15,7 @@ sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.3_arm64.deb
 - 安装过程无错误退出。
 - 安装输出包含服务健康检查结果。
 - 安装输出包含语音合成自检结果。
+- 覆盖升级时，后台 `wps-tts.service` 会被重启到新版本。
 - 生成日志文件：`/var/log/wps-read-aloud-install.log`。
 
 ## 服务测试
@@ -26,6 +27,7 @@ systemctl status wps-tts.service --no-pager
 预期结果：
 
 - 服务状态为 active/running。
+- 点击“状态检查”时，“系统播放器”不应显示为“未检测到”；如果系统没有 `aplay/pw-play/paplay`，应显示 `bundled-espeak-ng`。
 
 ## WPS 加载项测试
 
@@ -57,6 +59,7 @@ systemctl status wps-tts.service --no-pager
 - 当前语句同步选中。
 - 播放过程中可以暂停、继续、停止。
 - 不应出现“WPS 内置浏览器阻止了自动播放”的提示。
+- 不应出现 `Unexpected non-whitespace character after JSON` 这类原始技术错误。
 
 ## 中英文混合朗读测试
 

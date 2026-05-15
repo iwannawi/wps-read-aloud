@@ -28,6 +28,8 @@ import (
 //go:embed web
 var webFS embed.FS
 
+const AppVersion = "1.0.4"
+
 type Config struct {
 	Listen string
 	Piper  PiperConfig
@@ -130,9 +132,12 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	playerName := ""
 	if player.bin != "" {
 		playerName = filepath.Base(player.bin)
+	} else if resolveEspeakBin(s.cfg) != "" {
+		playerName = "bundled-espeak-ng"
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":           engine != "none",
+		"version":      AppVersion,
 		"engine":       engine,
 		"audio_player": playerName,
 		"message":      healthMessage(engine),
@@ -299,8 +304,15 @@ func (s *Server) play(w http.ResponseWriter, r *http.Request) {
 	s.current = group
 	s.mu.Unlock()
 
-	wavPath, err := s.synthesizeSpeech(ctx, group, req)
-	if err == nil {
+	player := resolveAudioPlayer("", req.Volume)
+	var wavPath string
+	var err error
+	if player.bin == "" {
+		err = s.speakDirect(ctx, group, req)
+	} else {
+		wavPath, err = s.synthesizeSpeech(ctx, group, req)
+	}
+	if err == nil && wavPath != "" {
 		err = s.playAudio(ctx, group, wavPath, req.Volume)
 	}
 	s.mu.Lock()
@@ -454,6 +466,28 @@ func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath str
 			Credential: &syscall.Credential{Uid: player.uid, Gid: player.gid},
 		}
 	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	startProcess(group, cmd)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("audio playback failed: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) speakDirect(ctx context.Context, group *processGroup, req SpeakRequest) error {
+	speed := strconv.Itoa(rateToEspeakSpeed(req.Rate))
+	amplitude := strconv.Itoa(req.Volume * 2)
+	bin := resolveEspeakBin(s.cfg)
+	if bin == "" {
+		return errors.New("no available audio player")
+	}
+	voice := s.cfg.Espeak.Voice
+	if isMostlyLatin(req.Text) && s.cfg.Espeak.EnglishVoice != "" {
+		voice = s.cfg.Espeak.EnglishVoice
+	}
+	cmd := exec.CommandContext(ctx, bin, "-v", voice, "-s", speed, "-a", amplitude, req.Text)
+	cmd.Env = runtimeEnv(os.Environ(), filepath.Join(filepath.Dir(bin), "lib"), filepath.Join(filepath.Dir(bin), "espeak-ng-data"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	startProcess(group, cmd)
