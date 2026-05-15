@@ -65,6 +65,15 @@ type processGroup struct {
 	cmds   []*exec.Cmd
 }
 
+type audioPlayer struct {
+	bin        string
+	args       []string
+	env        []string
+	uid        uint32
+	gid        uint32
+	credential bool
+}
+
 func main() {
 	configPath := flag.String("config", "/etc/wps-read-aloud/config.yaml", "config file path")
 	flag.Parse()
@@ -79,6 +88,7 @@ func main() {
 	mux.HandleFunc("/health", server.health)
 	mux.HandleFunc("/selftest", server.selftest)
 	mux.HandleFunc("/voices", server.voices)
+	mux.HandleFunc("/play", server.play)
 	mux.HandleFunc("/speak", server.speak)
 	mux.HandleFunc("/synthesize", server.synthesize)
 	mux.HandleFunc("/stop", server.stop)
@@ -116,10 +126,16 @@ func defaultConfig() Config {
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	engine := detectEngine(s.cfg)
+	player := resolveAudioPlayer("", 80)
+	playerName := ""
+	if player.bin != "" {
+		playerName = filepath.Base(player.bin)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":      engine != "none",
-		"engine":  engine,
-		"message": healthMessage(engine),
+		"ok":           engine != "none",
+		"engine":       engine,
+		"audio_player": playerName,
+		"message":      healthMessage(engine),
 	})
 }
 
@@ -196,39 +212,47 @@ func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) speak(w http.ResponseWriter, r *http.Request) {
-	s.synthesize(w, r)
+	s.play(w, r)
 }
 
-func (s *Server) synthesize(w http.ResponseWriter, r *http.Request) {
+func (s *Server) decodeSpeakRequest(w http.ResponseWriter, r *http.Request) (SpeakRequest, bool) {
+	var req SpeakRequest
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
+		return req, false
 	}
 
-	var req SpeakRequest
 	if err := json.NewDecoder(io.LimitReader(r.Body, 2<<20)).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "请求格式不正确，请重新打开 WPS 后再试。")
-		return
+		return req, false
 	}
 	req.Text = cleanText(req.Text)
 	req.Voice = normalizeVoice(req.Voice)
 	if req.Text == "" {
 		writeError(w, http.StatusBadRequest, "没有可朗读的文本，请先选中文本或打开包含正文的文档。")
-		return
+		return req, false
 	}
 	if len([]rune(req.Text)) > 200000 {
 		writeError(w, http.StatusBadRequest, "文档内容过长，请先选中一部分内容朗读。")
-		return
+		return req, false
 	}
 	if len([]rune(req.Text)) > 1000 {
 		writeError(w, http.StatusBadRequest, "单句内容过长，请缩短选区或按段落朗读。")
-		return
+		return req, false
 	}
 	if req.Rate <= 0 {
 		req.Rate = 1
 	}
 	if req.Volume <= 0 || req.Volume > 100 {
 		req.Volume = 80
+	}
+	return req, true
+}
+
+func (s *Server) synthesize(w http.ResponseWriter, r *http.Request) {
+	req, ok := s.decodeSpeakRequest(w, r)
+	if !ok {
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
@@ -257,6 +281,42 @@ func (s *Server) synthesize(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Cache-Control", "no-store")
 	http.ServeFile(w, r, wavPath)
+}
+
+func (s *Server) play(w http.ResponseWriter, r *http.Request) {
+	req, ok := s.decodeSpeakRequest(w, r)
+	if !ok {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 180*time.Second)
+	defer cancel()
+	id := newID()
+	group := &processGroup{id: id, cancel: cancel}
+
+	s.mu.Lock()
+	s.stopLocked()
+	s.current = group
+	s.mu.Unlock()
+
+	wavPath, err := s.synthesizeSpeech(ctx, group, req)
+	if err == nil {
+		err = s.playAudio(ctx, group, wavPath, req.Volume)
+	}
+	s.mu.Lock()
+	if s.current == group {
+		s.current = nil
+	}
+	s.mu.Unlock()
+	if wavPath != "" {
+		defer os.Remove(wavPath)
+	}
+	if err != nil {
+		log.Printf("play %s failed: %v", id, err)
+		writeError(w, http.StatusInternalServerError, friendlyError(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
@@ -379,8 +439,135 @@ func (s *Server) runEspeak(ctx context.Context, group *processGroup, req SpeakRe
 	return tmpPath, nil
 }
 
+func (s *Server) playAudio(ctx context.Context, group *processGroup, wavPath string, volume int) error {
+	_ = volume
+	player := resolveAudioPlayer(wavPath, volume)
+	if player.bin == "" {
+		return errors.New("no available audio player")
+	}
+	cmd := exec.CommandContext(ctx, player.bin, player.args...)
+	if len(player.env) > 0 {
+		cmd.Env = append(os.Environ(), player.env...)
+	}
+	if player.credential {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{Uid: player.uid, Gid: player.gid},
+		}
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	startProcess(group, cmd)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("audio playback failed: %w", err)
+	}
+	return nil
+}
+
+func resolveAudioPlayer(wavPath string, volume int) audioPlayer {
+	_ = volume
+	for _, session := range audioSessions() {
+		if session.pipewire && commandExists("pw-play") {
+			return audioPlayer{
+				bin:        mustLookPath("pw-play"),
+				args:       []string{wavPath},
+				env:        []string{"XDG_RUNTIME_DIR=" + session.runtimeDir},
+				uid:        session.uid,
+				gid:        session.gid,
+				credential: os.Geteuid() == 0,
+			}
+		}
+		if session.pulse && commandExists("paplay") {
+			return audioPlayer{
+				bin:        mustLookPath("paplay"),
+				args:       []string{wavPath},
+				env:        []string{"XDG_RUNTIME_DIR=" + session.runtimeDir, "PULSE_SERVER=unix:" + filepath.Join(session.runtimeDir, "pulse/native")},
+				uid:        session.uid,
+				gid:        session.gid,
+				credential: os.Geteuid() == 0,
+			}
+		}
+	}
+	for _, candidate := range []string{"/usr/bin/aplay", "/bin/aplay", "aplay"} {
+		if bin := resolveCommand(candidate); bin != "" {
+			return audioPlayer{bin: bin, args: []string{"-q", wavPath}}
+		}
+	}
+	return audioPlayer{}
+}
+
+type audioSession struct {
+	runtimeDir string
+	uid        uint32
+	gid        uint32
+	pipewire   bool
+	pulse      bool
+}
+
+func audioSessions() []audioSession {
+	entries, err := os.ReadDir("/run/user")
+	if err != nil {
+		return nil
+	}
+	var sessions []audioSession
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := strconv.Atoi(entry.Name()); err != nil {
+			continue
+		}
+		runtimeDir := filepath.Join("/run/user", entry.Name())
+		info, err := os.Stat(runtimeDir)
+		if err != nil {
+			continue
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			continue
+		}
+		session := audioSession{
+			runtimeDir: runtimeDir,
+			uid:        stat.Uid,
+			gid:        stat.Gid,
+			pipewire:   fileExists(filepath.Join(runtimeDir, "pipewire-0")),
+			pulse:      fileExists(filepath.Join(runtimeDir, "pulse/native")),
+		}
+		if session.pipewire || session.pulse {
+			sessions = append(sessions, session)
+		}
+	}
+	return sessions
+}
+
+func resolveCommand(name string) string {
+	if filepath.IsAbs(name) {
+		if fileExists(name) {
+			return name
+		}
+		return ""
+	}
+	if found, err := exec.LookPath(name); err == nil {
+		return found
+	}
+	return ""
+}
+
+func commandExists(name string) bool {
+	return resolveCommand(name) != ""
+}
+
+func mustLookPath(name string) string {
+	if found := resolveCommand(name); found != "" {
+		return found
+	}
+	return name
+}
+
 func startProcess(group *processGroup, cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setpgid = true
 	group.cmds = append(group.cmds, cmd)
 }
 
@@ -451,6 +638,10 @@ func friendlyError(err error) string {
 		return "Piper 语音引擎启动失败，已记录到系统日志。请联系管理员执行 journalctl -u wps-tts.service -n 80 --no-pager 查看原因。"
 	case strings.Contains(msg, "espeak-ng"):
 		return "备用语音引擎启动失败，已记录到系统日志。请联系管理员检查安装包是否完整。"
+	case strings.Contains(msg, "no available audio player"):
+		return "系统音频播放器不可用，请确认系统已安装 aplay、pw-play 或 paplay，并检查声卡输出是否正常。"
+	case strings.Contains(msg, "audio playback failed"):
+		return "系统音频播放失败，请检查扬声器、声卡输出和系统音量；如仍失败，请联系管理员查看 wps-tts.service 日志。"
 	case errors.Is(err, context.Canceled):
 		return "朗读已取消。"
 	default:

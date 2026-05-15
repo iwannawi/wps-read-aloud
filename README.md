@@ -18,7 +18,7 @@
 ## 工作方式
 
 ```text
-WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Piper/eSpeak NG -> WPS 内置页面播放音频
+WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Piper/eSpeak NG -> 系统播放器播放音频
 ```
 
 Piper 是首选中文离线语音引擎，eSpeak NG 是兜底引擎。所有文本只发送到本机回环地址，不访问外网。
@@ -89,7 +89,7 @@ python3 packaging/deb/build_deb.py
 最终交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.3_arm64.deb
 ```
 
 ## 安装
@@ -97,7 +97,7 @@ dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
 在银河麒麟 V10 ARM64 目标机执行：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.3_arm64.deb
 ```
 
 安装包会：
@@ -126,6 +126,7 @@ curl http://127.0.0.1:19860/selftest
 ```http
 GET /health
 GET /selftest
+POST /play
 POST /synthesize
 POST /speak
 POST /stop
@@ -134,7 +135,7 @@ POST /resume
 GET /voices
 ```
 
-加载项使用 `POST /synthesize` 获取 WAV 音频；`POST /speak` 作为兼容别名保留。
+加载项默认使用 `POST /play` 由本地服务完成系统侧播放，避免 WPS 内置浏览器自动播放限制；`POST /synthesize` 保留为 WAV 合成接口，`POST /speak` 作为兼容别名保留。
 
 ## Git 管理
 

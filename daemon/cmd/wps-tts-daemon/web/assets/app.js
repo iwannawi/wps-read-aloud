@@ -9,9 +9,7 @@
 
   var rate = 1.0;
   var volume = 80;
-  var currentAudio = null;
-  var currentAudioUrl = null;
-  var currentAudioDone = null;
+  var currentAbortController = null;
   var playbackToken = 0;
   var isReading = false;
   var isPaused = false;
@@ -63,7 +61,7 @@
       return "本地朗读服务未连接，请确认安装已完成并重启 WPS。";
     }
     if (/NotAllowedError|play\(\)|user.*interact/i.test(raw)) {
-      return "WPS 内置浏览器阻止了自动播放，请再点击一次朗读按钮。";
+      return "WPS 内置浏览器阻止了音频播放。请升级到使用系统播放接口的最新安装包后重试。";
     }
     if (/AbortError|aborted|timeout/i.test(raw)) {
       return "朗读合成超时，请缩短选中文本后重试。";
@@ -201,14 +199,29 @@
     return data;
   }
 
-  async function synthesize(segment) {
+  function clearAudio() {
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
+  }
+
+  async function postControl(path) {
+    try {
+      await request(path, { method: "POST" });
+    } catch (error) {
+      status(userMessage(error));
+    }
+  }
+
+  async function playSegment(segment, token) {
     var controller = new AbortController();
+    currentAbortController = controller;
     var timer = setTimeout(function () {
       controller.abort();
-    }, 65000);
-    var response;
+    }, 180000);
     try {
-      response = await fetch(SERVICE_BASE + "/synthesize", {
+      var response = await fetch(SERVICE_BASE + "/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -219,54 +232,20 @@
           volume: volume
         })
       });
+      var text = await response.text();
+      var data = text ? JSON.parse(text) : {};
+      if (!response.ok) {
+        throw new Error(data.error || response.statusText);
+      }
+      if (token !== playbackToken) {
+        throw new Error("朗读已取消。");
+      }
     } finally {
       clearTimeout(timer);
-    }
-    if (!response.ok) {
-      var errorText = await response.text();
-      throw new Error(errorText || response.statusText);
-    }
-    return response.blob();
-  }
-
-  function clearAudio() {
-    var done = currentAudioDone;
-    currentAudioDone = null;
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.src = "";
-      currentAudio = null;
-    }
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
-    }
-    if (typeof done === "function") {
-      done();
-    }
-  }
-
-  function playBlob(blob, token) {
-    return new Promise(function (resolve, reject) {
-      clearAudio();
-      currentAudioUrl = URL.createObjectURL(blob);
-      currentAudio = new Audio(currentAudioUrl);
-      currentAudio.volume = Math.max(0.2, Math.min(1, volume / 100));
-      currentAudioDone = resolve;
-      currentAudio.addEventListener("ended", function () {
-        currentAudioDone = null;
-        resolve();
-      }, { once: true });
-      currentAudio.addEventListener("error", function () {
-        currentAudioDone = null;
-        reject(new Error("音频播放失败，请检查系统音频输出。"));
-      }, { once: true });
-      currentAudio.play().catch(reject);
-      if (token !== playbackToken) {
-        clearAudio();
-        resolve();
+      if (currentAbortController === controller) {
+        currentAbortController = null;
       }
-    });
+    }
   }
 
   async function speakSource(source) {
@@ -312,13 +291,8 @@
         }
         var segment = segments[i];
         selectDocumentRange(segment);
-        status("正在合成第 " + (i + 1) + " / " + segments.length + " 句。");
-        var wav = await synthesize(segment);
-        if (token !== playbackToken) {
-          break;
-        }
         status("正在朗读第 " + (i + 1) + " / " + segments.length + " 句。");
-        await playBlob(wav, token);
+        await playSegment(segment, token);
       }
       if (token === playbackToken) {
         status("朗读完成。");
@@ -348,6 +322,7 @@
     isPaused = false;
     isReading = false;
     clearAudio();
+    postControl("/stop");
     if (!silent) {
       status("已停止。");
     }
@@ -362,9 +337,7 @@
       return;
     }
     isPaused = true;
-    if (currentAudio) {
-      currentAudio.pause();
-    }
+    postControl("/pause");
     status("已暂停。");
   }
 
@@ -373,12 +346,7 @@
       return;
     }
     isPaused = false;
-    if (currentAudio) {
-      currentAudio.play().catch(function (error) {
-        notify(userMessage(error));
-      });
-      return;
-    }
+    postControl("/resume");
     status("已继续。");
   }
 
@@ -405,9 +373,6 @@
     };
     var id = selectedId || controlId(control);
     volume = map[id] || 80;
-    if (currentAudio) {
-      currentAudio.volume = Math.max(0.2, Math.min(1, volume / 100));
-    }
     status("音量已设置为 " + volume + "%。");
   }
 
@@ -415,7 +380,7 @@
     try {
       var health = await request("/health");
       if (health.ok) {
-        notify("本地朗读服务正常。\n当前引擎：" + health.engine);
+        notify("本地朗读服务正常。\n当前引擎：" + health.engine + "\n系统播放器：" + (health.audio_player || "未检测到"));
       } else {
         notify("本地朗读服务已启动，但语音引擎不可用。请联系管理员重新安装。");
       }
@@ -429,7 +394,7 @@
       "WPS 文档朗读加载项",
       "开发者：zhangjingyao",
       "发布时间：20260515",
-      "版本：1.0.2",
+      "版本：1.0.3",
       "服务地址：127.0.0.1:19860",
       "",
       "说明文件：",

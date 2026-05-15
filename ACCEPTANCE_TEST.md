@@ -1,13 +1,13 @@
 # 验收测试说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.2
+版本：1.0.3
 目标环境：银河麒麟 V10 ARM64 + WPS 2023 for Linux
 
 ## 安装测试
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.2_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.3_arm64.deb
 ```
 
 预期结果：
@@ -56,6 +56,7 @@ systemctl status wps-tts.service --no-pager
 - 加载项按语句逐句朗读。
 - 当前语句同步选中。
 - 播放过程中可以暂停、继续、停止。
+- 不应出现“WPS 内置浏览器阻止了自动播放”的提示。
 
 ## 中英文混合朗读测试
 
@@ -126,7 +127,7 @@ sudo dpkg -P wps-read-aloud-zhangjingyao
 
 预期结果：
 
-- 加载项在合成等待时显示“正在合成”提示。
+- 加载项在合成和播放等待时显示当前朗读进度。
 - 文档过长时不会无限制处理全部内容。
 - 单句过长时会提示缩短选区或按段落朗读。
 - 停止按钮仍能结束当前朗读状态。
