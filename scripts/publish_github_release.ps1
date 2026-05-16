@@ -1,16 +1,16 @@
 param(
   [string]$Owner = "iwannawi",
   [string]$Repo = "wps-read-aloud",
-  [string]$Tag = "v1.0.16-20260516"
+  [string]$Tag = "v1.0.17-20260516"
 )
 
 $ErrorActionPreference = "Stop"
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$Deb = Join-Path $Root "dist\wps-read-aloud-XC_1.0.16_arm64.deb"
-$ShaFile = Join-Path $Root "dist\wps-read-aloud-XC_1.0.16_arm64.deb.sha256"
+$Deb = Join-Path $Root "dist\wps-read-aloud-xc_1.0.17_arm64.deb"
+$ShaFile = Join-Path $Root "dist\wps-read-aloud-xc_1.0.17_arm64.deb.sha256"
 $ReleaseNotes = Join-Path $Root "RELEASE_NOTES.md"
-$Log = Join-Path $Root "dist\github-release-v1.0.16-20260516.log"
+$Log = Join-Path $Root "dist\github-release-v1.0.17-20260516.log"
 
 function Write-Log($Text) {
   $Text | Tee-Object -FilePath $Log -Append

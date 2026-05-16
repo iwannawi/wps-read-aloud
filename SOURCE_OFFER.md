@@ -1,8 +1,8 @@
 # 第三方源码获取说明
 
 软件名称：WPS 文档朗读助手
-软件包：wps-read-aloud-XC
-版本：1.0.16
+软件包：wps-read-aloud-xc
+版本：1.0.17
 开发者：Zhang Jingyao
 发布时间：20260516
 

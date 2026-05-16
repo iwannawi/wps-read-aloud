@@ -70,8 +70,8 @@
       variant: "info",
       compact: true,
       startup: true,
-      width: 520,
-      height: 190,
+      width: 500,
+      height: 150,
       message: "请耐心等待，朗读模块正在启动... ..."
     };
     return showDialog(options);
@@ -685,8 +685,8 @@
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "发布时间", value: "20260516" },
-        { label: "版本", value: "1.0.16" },
-        { label: "软件包", value: "wps-read-aloud-XC" },
+        { label: "版本", value: "1.0.17" },
+        { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],
       links: [

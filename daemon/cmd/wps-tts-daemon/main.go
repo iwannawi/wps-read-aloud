@@ -32,7 +32,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.16"
+const AppVersion = "1.0.17"
 
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
 const prefetchTextTarget = 100
