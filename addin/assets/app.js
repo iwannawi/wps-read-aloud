@@ -18,11 +18,9 @@
   var lastSelectedIndex = -1;
 
   var RATE_OPTIONS = [
-    { id: "rate05", value: 0.5, label: "0.5x" },
     { id: "rate075", value: 0.75, label: "0.75x" },
     { id: "rate10", value: 1.0, label: "1x" },
-    { id: "rate15", value: 1.5, label: "1.5x" },
-    { id: "rate20", value: 2.0, label: "2x" }
+    { id: "rate15", value: 1.5, label: "1.5x" }
   ];
 
   function notify(message, title, variant) {
@@ -41,11 +39,11 @@
     try {
       if (window.wps && typeof window.wps.ShowDialog === "function") {
         window.wps.ShowDialog(url, title, 880, 680, false);
-        return;
+        return null;
       }
       if (window.Application && typeof window.Application.ShowDialog === "function") {
         window.Application.ShowDialog(url, title, 880, 680, false);
-        return;
+        return null;
       }
     } catch (_) {
       // Continue to window.open below.
@@ -55,12 +53,13 @@
       var popup = window.open(url, "wpsReadAloudDialog", "width=880,height=680,resizable=yes,scrollbars=yes");
       if (popup && typeof popup.focus === "function") {
         popup.focus();
-        return;
+        return popup;
       }
     } catch (_) {
       // Fall back below.
     }
     dialogFallback(options);
+    return null;
   }
 
   function toBase64(text) {
@@ -101,6 +100,11 @@
     } catch (_) {}
   }
 
+  function setReadingState(value) {
+    isReading = !!value;
+    invalidateControls();
+  }
+
   function controlId(control) {
     if (typeof control === "string") {
       return control;
@@ -112,8 +116,7 @@
     var icons = {
       startSpeak: "assets/icons/start.png",
       stopSpeak: "assets/icons/stop.png",
-      modeContinuous: "assets/icons/continuous.png",
-      modePage: "assets/icons/page.png",
+      modeMenu: "assets/icons/mode.png",
       rateMenu: "assets/icons/rate.png",
       checkStatus: "assets/icons/status.png",
       aboutAddin: "assets/icons/about.png"
@@ -412,9 +415,15 @@
 
     playbackToken += 1;
     var token = playbackToken;
-    isReading = true;
+    setReadingState(true);
     lastSelectedIndex = -1;
     status("正在预生成前三句音频，请稍候。");
+    var startupPopup = showDialog({
+      title: "朗读正在启动",
+      variant: "info",
+      message: "稍等片刻，朗读正在启动",
+      autoCloseMs: 12000
+    });
 
     try {
       await request("/read/start", {
@@ -428,21 +437,34 @@
           prefetch: 3
         })
       });
-      await pollReadStatus(token, segments);
+      await pollReadStatus(token, segments, startupPopup);
     } catch (error) {
       if (token === playbackToken) {
         notify(userMessage(error));
       }
     } finally {
+      closePopup(startupPopup);
       if (token === playbackToken) {
-        isReading = false;
+        setReadingState(false);
       }
     }
   }
 
-  async function pollReadStatus(token, segments) {
+  function closePopup(popup) {
+    try {
+      if (popup && !popup.closed && typeof popup.close === "function") {
+        popup.close();
+      }
+    } catch (_) {}
+  }
+
+  async function pollReadStatus(token, segments, startupPopup) {
     while (token === playbackToken) {
       var data = await request("/read/status");
+      if (data.state === "playing") {
+        closePopup(startupPopup);
+        startupPopup = null;
+      }
       var index = Number(data.current_index);
       if (index >= 0 && index < segments.length && index !== lastSelectedIndex) {
         lastSelectedIndex = index;
@@ -476,7 +498,7 @@
       return;
     }
     playbackToken += 1;
-    isReading = false;
+    setReadingState(false);
     lastSelectedIndex = -1;
     postControl("/read/stop");
     if (!silent) {
@@ -511,6 +533,10 @@
   }
 
   function setRateById(id) {
+    if (isReading) {
+      status("朗读过程中不能切换语速，请停止后再调整。");
+      return true;
+    }
     for (var i = 0; i < RATE_OPTIONS.length; i += 1) {
       if (RATE_OPTIONS[i].id === id) {
         rate = RATE_OPTIONS[i].value;
@@ -537,6 +563,10 @@
   }
 
   function setReadMode(mode) {
+    if (isReading) {
+      status("朗读过程中不能切换朗读方式，请停止后再调整。");
+      return;
+    }
     readMode = mode === "page" ? "page" : "continuous";
     invalidateControls();
     status(readMode === "page" ? "已切换为当页朗读。" : "已切换为连页朗读。");
@@ -548,14 +578,15 @@
       return;
     }
     [
-      "modeContinuous",
-      "modePage",
+      "startSpeak",
+      "stopSpeak",
+      "modeMenu",
       "rateMenu",
-      "rate05",
+      "modeContinuousItem",
+      "modePageItem",
       "rate075",
       "rate10",
-      "rate15",
-      "rate20"
+      "rate15"
     ].forEach(function (id) {
       try {
         ui.InvalidateControl(id);
@@ -564,23 +595,33 @@
   }
 
   function onGetPressed(control) {
-    var id = controlId(control);
-    if (id === "modeContinuous") {
-      return readMode === "continuous";
-    }
-    if (id === "modePage") {
-      return readMode === "page";
-    }
     return false;
+  }
+
+  function onGetEnabled(control) {
+    var id = controlId(control);
+    if (id === "startSpeak") {
+      return !isReading;
+    }
+    if (id === "stopSpeak") {
+      return isReading;
+    }
+    if (id === "modeMenu" || id === "rateMenu") {
+      return !isReading;
+    }
+    return true;
   }
 
   function onGetLabel(control) {
     var id = controlId(control);
-    if (id === "modeContinuous") {
-      return (readMode === "continuous" ? "● " : "○ ") + "连页朗读";
+    if (id === "modeMenu") {
+      return "朗读方式 " + (readMode === "page" ? "当页朗读" : "连页朗读");
     }
-    if (id === "modePage") {
-      return (readMode === "page" ? "● " : "○ ") + "当页朗读";
+    if (id === "modeContinuousItem") {
+      return (readMode === "continuous" ? "✓ " : "") + "连页朗读";
+    }
+    if (id === "modePageItem") {
+      return (readMode === "page" ? "✓ " : "") + "当页朗读";
     }
     if (id === "rateMenu") {
       return "朗读语速 " + rateLabelForValue(rate);
@@ -631,7 +672,7 @@
         { label: "适用环境", value: "银河麒麟 V10 ARM64 / WPS 2023 for Linux" },
         { label: "开发者", value: "zhangjingyao" },
         { label: "发布时间", value: "20260516" },
-        { label: "版本", value: "1.0.14" },
+        { label: "版本", value: "1.0.15" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],
       links: [
@@ -664,11 +705,11 @@
       onStopSpeak();
       return;
     }
-    if (id === "modeContinuous") {
+    if (id === "modeContinuousItem") {
       setReadMode("continuous");
       return;
     }
-    if (id === "modePage") {
+    if (id === "modePageItem") {
       setReadMode("page");
       return;
     }
@@ -701,6 +742,8 @@
   window.OnGetImage = onGetImage;
   window.GetPressed = onGetPressed;
   window.OnGetPressed = onGetPressed;
+  window.GetEnabled = onGetEnabled;
+  window.OnGetEnabled = onGetEnabled;
   window.GetLabel = onGetLabel;
   window.OnGetLabel = onGetLabel;
   window.ribbon = {
@@ -710,6 +753,8 @@
     OnGetImage: onGetImage,
     GetPressed: onGetPressed,
     OnGetPressed: onGetPressed,
+    GetEnabled: onGetEnabled,
+    OnGetEnabled: onGetEnabled,
     GetLabel: onGetLabel,
     OnGetLabel: onGetLabel,
     OnStartSpeak: onStartSpeak,
@@ -721,5 +766,6 @@
   window.onAbout = onAbout;
   window.onGetImage = onGetImage;
   window.onGetPressed = onGetPressed;
+  window.onGetEnabled = onGetEnabled;
   window.onGetLabel = onGetLabel;
 })();

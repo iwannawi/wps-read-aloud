@@ -67,19 +67,64 @@
         var row = document.createElement("div");
         row.className = "link-item";
         appendText(row, "span", item.label);
-        var a = document.createElement("a");
-        a.href = item.url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.textContent = "打开";
-        row.appendChild(a);
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "link-button";
+        btn.textContent = "打开";
+        btn.onclick = function () {
+          openDoc(item.label, item.url);
+        };
+        row.appendChild(btn);
         linksEl.appendChild(row);
       });
     }
 
+    document.getElementById("backBtn").onclick = function () {
+      showMainView();
+    };
     document.getElementById("closeBtn").onclick = function () {
       window.close();
     };
+    if (payload.autoCloseMs) {
+      setTimeout(function () {
+        window.close();
+      }, Math.max(1000, Number(payload.autoCloseMs) || 1000));
+    }
+  }
+
+  function showMainView() {
+    document.getElementById("fieldsSection").hidden = !document.getElementById("fields").children.length;
+    document.getElementById("detailsSection").hidden = !document.getElementById("details").children.length;
+    document.getElementById("linksSection").hidden = !document.getElementById("links").children.length;
+    document.getElementById("docSection").hidden = true;
+    document.querySelector("footer").hidden = false;
+  }
+
+  function showDocView(title, content) {
+    document.getElementById("fieldsSection").hidden = true;
+    document.getElementById("detailsSection").hidden = true;
+    document.getElementById("linksSection").hidden = true;
+    document.getElementById("docSection").hidden = false;
+    document.querySelector("footer").hidden = true;
+    document.getElementById("docTitle").textContent = title || "说明文件";
+    document.getElementById("docContent").textContent = content || "";
+  }
+
+  function openDoc(title, url) {
+    showDocView(title, "正在加载，请稍候...");
+    fetch(url, { cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+        return response.text();
+      })
+      .then(function (content) {
+        showDocView(title, content);
+      })
+      .catch(function (error) {
+        showDocView(title, "说明文件加载失败：" + (error && error.message ? error.message : String(error)));
+      });
   }
 
   render();

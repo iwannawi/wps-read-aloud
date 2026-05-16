@@ -31,7 +31,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.14"
+const AppVersion = "1.0.15"
 
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
 

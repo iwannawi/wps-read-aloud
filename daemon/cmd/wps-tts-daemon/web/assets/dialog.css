@@ -105,15 +105,43 @@ dd {
   white-space: nowrap;
 }
 
-a {
+.link-button {
+  min-width: 96px;
+  height: 34px;
+  border: 1px solid #c9d5ee;
+  border-radius: 4px;
+  background: #fff;
   color: #2453c5;
-  text-decoration: none;
   font-weight: 650;
+  font-size: 15px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-a:hover {
-  text-decoration: underline;
+.link-button:hover {
+  background: #f2f6ff;
+}
+
+.doc-view {
+  min-height: 430px;
+}
+
+#docContent {
+  margin: 0;
+  max-height: 430px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #111827;
+  font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.85;
+}
+
+.doc-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 footer {
