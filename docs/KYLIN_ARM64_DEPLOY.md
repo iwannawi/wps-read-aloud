@@ -12,7 +12,7 @@
 企业交付优先使用 `.deb`：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 ```
 
 安装后会自动：
@@ -65,9 +65,7 @@ python3 packaging/deb/build_deb.py
 ```text
 engines/sherpa-onnx/sherpa-onnx-offline-tts
 engines/sherpa-onnx/lib/
-voices/sherpa/matcha-icefall-zh-baker/
-voices/sherpa/matcha-icefall-en_US-ljspeech/
-voices/sherpa/vocos-22khz-univ.onnx
+voices/sherpa/vits-zh-hf-fanchen-C/
 ```
 
 `build-arm64.sh` 会同步 `addin/` 到 Go embedded web 目录；`build_deb.py` 会在打包前再次校验同步状态。

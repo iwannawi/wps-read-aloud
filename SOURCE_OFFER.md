@@ -1,7 +1,7 @@
 # 第三方源码获取说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.11
+版本：1.0.12
 开发者：zhangjingyao
 发布时间：20260515
 
@@ -19,18 +19,14 @@
 - 源码地址：https://github.com/microsoft/onnxruntime
 - 安装路径：`/opt/wps-read-aloud/engines/sherpa-onnx/lib/libonnxruntime*`
 
-## Sherpa-onnx Matcha 语音模型
+## Sherpa-onnx VITS 语音模型
 
-- 中文模型：`matcha-icefall-zh-baker`
-- 英文模型：`matcha-icefall-en_US-ljspeech`
-- 声码器模型：`vocos-22khz-univ.onnx`
+- 中文模型：`vits-zh-hf-fanchen-C`
 - 上游模型发布页：https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models
-- 声码器发布页：https://github.com/k2-fsa/sherpa-onnx/releases/tag/vocoder-models
+- Hugging Face 镜像页：https://huggingface.co/csukuangfj/vits-zh-hf-fanchen-C
 
 包内文件：
 
-- `/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/`
-- `/opt/wps-read-aloud/voices/sherpa/matcha-icefall-en_US-ljspeech/`
-- `/opt/wps-read-aloud/voices/sherpa/vocos-22khz-univ.onnx`
+- `/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/`
 
-神经语音模型的再分发可能涉及单位内部合规要求，正式对外分发前建议进行法务或合规审核。特别是当前中文模型 `matcha-icefall-zh-baker` 的上游说明提示其训练数据集仅限非商业用途；如用于正式政企或商业交付，应先取得授权或替换为许可允许商业使用的中文模型。
+神经语音模型的再分发可能涉及单位内部合规要求，正式对外分发前建议进行法务或合规审核。特别是当前中文模型 `vits-zh-hf-fanchen-C` 的 Hugging Face 仓库未提供完整模型卡和明确许可证；如用于正式政企或商业交付，应先完成授权确认，或替换为许可明确的中文模型。

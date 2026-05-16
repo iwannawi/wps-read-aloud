@@ -1,13 +1,13 @@
 # 验收测试说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.11
+版本：1.0.12
 目标环境：银河麒麟 V10 ARM64 + WPS 2023 for Linux
 
 ## 安装测试
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 ```
 
 预期结果：
@@ -83,7 +83,7 @@ systemctl status wps-tts.service --no-pager
 - 中文内容可以朗读。
 - 英文内容可以朗读。
 - 中英文混合句子不会跳过英文。
-- 中文片段应使用 `matcha-icefall-zh-baker`，英文片段应使用 `matcha-icefall-en_US-ljspeech`。
+- 中英文混排文本应统一使用 `vits-zh-hf-fanchen-C` 合成；英文单词应按字母间隔方式清晰朗读。
 - 当前朗读语句仍在 WPS 文档中同步选中。
 
 ## 卸载测试

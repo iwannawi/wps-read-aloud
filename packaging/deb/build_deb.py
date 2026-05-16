@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PKG_NAME = "wps-read-aloud-zhangjingyao"
-VERSION = os.environ.get("VERSION", "1.0.11")
+VERSION = os.environ.get("VERSION", "1.0.12")
 ARCH = os.environ.get("ARCH", "arm64")
 BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{ARCH}"
 DATA = BUILD / "data"
@@ -24,13 +24,13 @@ REQUIRED = [
     "dist/wps-tts-daemon",
     "engines/sherpa-onnx/sherpa-onnx-offline-tts",
     "engines/sherpa-onnx/lib",
-    "voices/sherpa/matcha-icefall-zh-baker/model-steps-3.onnx",
-    "voices/sherpa/matcha-icefall-zh-baker/lexicon.txt",
-    "voices/sherpa/matcha-icefall-zh-baker/tokens.txt",
-    "voices/sherpa/matcha-icefall-en_US-ljspeech/model-steps-3.onnx",
-    "voices/sherpa/matcha-icefall-en_US-ljspeech/tokens.txt",
-    "voices/sherpa/matcha-icefall-en_US-ljspeech/espeak-ng-data",
-    "voices/sherpa/vocos-22khz-univ.onnx",
+    "voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
+    "voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt",
+    "voices/sherpa/vits-zh-hf-fanchen-C/tokens.txt",
+    "voices/sherpa/vits-zh-hf-fanchen-C/phone.fst",
+    "voices/sherpa/vits-zh-hf-fanchen-C/date.fst",
+    "voices/sherpa/vits-zh-hf-fanchen-C/number.fst",
+    "voices/sherpa/vits-zh-hf-fanchen-C/new_heteronym.fst",
     "third_party_licenses/THIRD_PARTY_NOTICES.md",
     "third_party_licenses/SHERPA_ONNX_LICENSE.md",
     "third_party_licenses/SHERPA_ONNX_MODELS_LICENSE.md",

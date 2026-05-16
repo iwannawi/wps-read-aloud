@@ -30,7 +30,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.11"
+const AppVersion = "1.0.12"
 
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
 
@@ -43,15 +43,11 @@ type SherpaConfig struct {
 	Bin              string
 	NumThreads       int
 	TargetSampleRate int
-	ZhMatchaModel    string
-	ZhMatchaVocoder  string
-	ZhMatchaLexicon  string
-	ZhMatchaTokens   string
-	ZhRuleFsts       string
-	EnMatchaModel    string
-	EnMatchaVocoder  string
-	EnMatchaTokens   string
-	EnMatchaDataDir  string
+	VitsModel        string
+	VitsLexicon      string
+	VitsTokens       string
+	VitsRuleFsts     string
+	VitsSpeakerID    int
 }
 
 type SpeakRequest struct {
@@ -140,16 +136,12 @@ func defaultConfig() Config {
 		Sherpa: SherpaConfig{
 			Bin:              "/opt/wps-read-aloud/engines/sherpa-onnx/sherpa-onnx-offline-tts",
 			NumThreads:       2,
-			TargetSampleRate: 22050,
-			ZhMatchaModel:    "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/model-steps-3.onnx",
-			ZhMatchaVocoder:  "/opt/wps-read-aloud/voices/sherpa/vocos-22khz-univ.onnx",
-			ZhMatchaLexicon:  "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/lexicon.txt",
-			ZhMatchaTokens:   "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/tokens.txt",
-			ZhRuleFsts:       "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/phone.fst,/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/date.fst,/opt/wps-read-aloud/voices/sherpa/matcha-icefall-zh-baker/number.fst",
-			EnMatchaModel:    "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-en_US-ljspeech/model-steps-3.onnx",
-			EnMatchaVocoder:  "/opt/wps-read-aloud/voices/sherpa/vocos-22khz-univ.onnx",
-			EnMatchaTokens:   "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-en_US-ljspeech/tokens.txt",
-			EnMatchaDataDir:  "/opt/wps-read-aloud/voices/sherpa/matcha-icefall-en_US-ljspeech/espeak-ng-data",
+			TargetSampleRate: 16000,
+			VitsModel:        "/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
+			VitsLexicon:      "/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt",
+			VitsTokens:       "/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/tokens.txt",
+			VitsRuleFsts:     "/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/phone.fst,/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/date.fst,/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/number.fst,/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/new_heteronym.fst",
+			VitsSpeakerID:    14,
 		},
 	}
 }
@@ -219,8 +211,7 @@ func (s *Server) selftest(w http.ResponseWriter, r *http.Request) {
 func (s *Server) voices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"voices": []map[string]string{
-			{"id": "zh_CN", "name": "中文普通话 Sherpa Matcha Baker"},
-			{"id": "en_US", "name": "English Sherpa Matcha LJSpeech"},
+			{"id": "zh_CN", "name": "中文普通话 Sherpa VITS fanchen-C"},
 		},
 	})
 }
@@ -434,56 +425,18 @@ func (s *Server) stopLocked() {
 func (s *Server) synthesizeSpeech(ctx context.Context, group *processGroup, req SpeakRequest) (string, error) {
 	engine := detectEngine(s.cfg)
 	s.engine = engine
-	if !isMostlyLatin(req.Text) {
-		req.Text = normalizeMandarinText(req.Text)
-	}
 	switch engine {
 	case "sherpa-onnx":
-		return s.runSherpaMixed(ctx, group, req)
+		req.Text = preprocessFanchenText(req.Text)
+		return s.runSherpaVits(ctx, group, req)
 	default:
 		return "", errors.New("no available tts engine")
 	}
 }
 
-type textSegment struct {
-	lang string
-	text string
-}
+var asciiWordRE = regexp.MustCompile(`[A-Za-z]+`)
 
-var mixedTextTokenRE = regexp.MustCompile(`[\p{Han}]+|[A-Za-z]+(?:[A-Za-z0-9'._%:/+-]*[A-Za-z0-9])?|[0-9]+(?:[._%:/+-][0-9]+)*|[^\p{Han}A-Za-z0-9]+`)
-
-func (s *Server) runSherpaMixed(ctx context.Context, group *processGroup, req SpeakRequest) (string, error) {
-	segments := splitMixedLanguageText(req.Text)
-	if len(segments) == 0 {
-		return "", errors.New("no available tts text")
-	}
-	var wavs []string
-	for _, segment := range segments {
-		segmentReq := req
-		segmentReq.Text = segment.text
-		wavPath, err := s.runSherpaSegment(ctx, group, segmentReq, segment.lang)
-		if err != nil {
-			for _, path := range wavs {
-				os.Remove(path)
-			}
-			return "", err
-		}
-		wavs = append(wavs, wavPath)
-	}
-	if len(wavs) == 1 {
-		return wavs[0], nil
-	}
-	out, err := concatenateWavFiles(wavs, s.cfg.Sherpa.TargetSampleRate)
-	for _, path := range wavs {
-		os.Remove(path)
-	}
-	if err != nil {
-		return "", fmt.Errorf("sherpa-onnx failed: %w", err)
-	}
-	return out, nil
-}
-
-func (s *Server) runSherpaSegment(ctx context.Context, group *processGroup, req SpeakRequest, lang string) (string, error) {
+func (s *Server) runSherpaVits(ctx context.Context, group *processGroup, req SpeakRequest) (string, error) {
 	tmp, err := os.CreateTemp("", "wps-read-aloud-*.wav")
 	if err != nil {
 		return "", fmt.Errorf("sherpa-onnx failed: %w", err)
@@ -493,31 +446,20 @@ func (s *Server) runSherpaSegment(ctx context.Context, group *processGroup, req 
 
 	args := []string{
 		"--num-threads=" + strconv.Itoa(sherpaNumThreads(s.cfg.Sherpa.NumThreads)),
-		"--speed=" + fmt.Sprintf("%.2f", clampRate(req.Rate)),
+		"--sid=" + strconv.Itoa(s.cfg.Sherpa.VitsSpeakerID),
+		"--vits-model=" + s.cfg.Sherpa.VitsModel,
+		"--vits-lexicon=" + s.cfg.Sherpa.VitsLexicon,
+		"--vits-tokens=" + s.cfg.Sherpa.VitsTokens,
+		"--vits-length-scale=" + fmt.Sprintf("%.2f", vitsLengthScale(req.Rate)),
 		"--output-filename=" + tmpPath,
 	}
-	if lang == "en" {
-		args = append(args,
-			"--matcha-acoustic-model="+s.cfg.Sherpa.EnMatchaModel,
-			"--matcha-vocoder="+s.cfg.Sherpa.EnMatchaVocoder,
-			"--matcha-tokens="+s.cfg.Sherpa.EnMatchaTokens,
-			"--matcha-data-dir="+s.cfg.Sherpa.EnMatchaDataDir,
-		)
-	} else {
-		args = append(args,
-			"--matcha-acoustic-model="+s.cfg.Sherpa.ZhMatchaModel,
-			"--matcha-vocoder="+s.cfg.Sherpa.ZhMatchaVocoder,
-			"--matcha-lexicon="+s.cfg.Sherpa.ZhMatchaLexicon,
-			"--matcha-tokens="+s.cfg.Sherpa.ZhMatchaTokens,
-		)
-		if fsts := existingRuleFsts(s.cfg.Sherpa.ZhRuleFsts); fsts != "" {
-			args = append(args, "--tts-rule-fsts="+fsts)
-		}
+	if fsts := existingRuleFsts(s.cfg.Sherpa.VitsRuleFsts); fsts != "" {
+		args = append(args, "--tts-rule-fsts="+fsts)
 	}
 	args = append(args, req.Text)
 
 	cmd := exec.CommandContext(ctx, s.cfg.Sherpa.Bin, args...)
-	cmd.Env = runtimeEnv(os.Environ(), filepath.Join(filepath.Dir(s.cfg.Sherpa.Bin), "lib"), s.cfg.Sherpa.EnMatchaDataDir)
+	cmd.Env = runtimeEnv(os.Environ(), filepath.Join(filepath.Dir(s.cfg.Sherpa.Bin), "lib"))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	startProcess(group, cmd)
@@ -794,79 +736,21 @@ func applyWavVolume(path string, volume int) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-func normalizeMandarinText(text string) string {
+func preprocessFanchenText(text string) string {
 	replacer := strings.NewReplacer(
 		"　", " ",
-		"0", "零",
-		"1", "一",
-		"2", "二",
-		"3", "三",
-		"4", "四",
-		"5", "五",
-		"6", "六",
-		"7", "七",
-		"8", "八",
-		"9", "九",
-		"%", "百分之",
 		"℃", "摄氏度",
 		"&", "和",
 	)
 	text = replacer.Replace(text)
-	text = strings.Join(strings.Fields(text), " ")
-	return strings.TrimSpace(text)
-}
-
-func splitMixedLanguageText(text string) []textSegment {
-	matches := mixedTextTokenRE.FindAllString(text, -1)
-	var segments []textSegment
-	for _, token := range matches {
-		if token == "" {
-			continue
+	text = asciiWordRE.ReplaceAllStringFunc(text, func(word string) string {
+		letters := make([]string, 0, len(word))
+		for _, r := range word {
+			letters = append(letters, string(r))
 		}
-		lang := segmentLanguage(token)
-		if len(segments) == 0 {
-			segments = append(segments, textSegment{lang: lang, text: token})
-			continue
-		}
-		last := &segments[len(segments)-1]
-		if lang == "punct" {
-			last.text += token
-			continue
-		}
-		if last.lang == lang || last.lang == "punct" {
-			last.lang = lang
-			last.text += token
-			continue
-		}
-		segments = append(segments, textSegment{lang: lang, text: token})
-	}
-	out := segments[:0]
-	for _, segment := range segments {
-		text := strings.TrimSpace(segment.text)
-		if text != "" {
-			out = append(out, textSegment{lang: segment.lang, text: text})
-		}
-	}
-	return out
-}
-
-func segmentLanguage(text string) string {
-	var latin, cjk int
-	for _, r := range text {
-		switch {
-		case r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z':
-			latin++
-		case r >= 0x4E00 && r <= 0x9FFF:
-			cjk++
-		}
-	}
-	if latin == 0 && cjk == 0 {
-		return "punct"
-	}
-	if latin > cjk {
-		return "en"
-	}
-	return "zh"
+		return " " + strings.Join(letters, " ") + " "
+	})
+	return strings.TrimSpace(strings.Join(strings.Fields(text), " "))
 }
 
 func existingRuleFsts(value string) string {
@@ -1165,14 +1049,9 @@ func terminateProcessGroup(cmd *exec.Cmd) {
 
 func detectEngine(cfg Config) string {
 	if fileExists(cfg.Sherpa.Bin) &&
-		fileExists(cfg.Sherpa.ZhMatchaModel) &&
-		fileExists(cfg.Sherpa.ZhMatchaVocoder) &&
-		fileExists(cfg.Sherpa.ZhMatchaLexicon) &&
-		fileExists(cfg.Sherpa.ZhMatchaTokens) &&
-		fileExists(cfg.Sherpa.EnMatchaModel) &&
-		fileExists(cfg.Sherpa.EnMatchaVocoder) &&
-		fileExists(cfg.Sherpa.EnMatchaTokens) &&
-		dirExists(cfg.Sherpa.EnMatchaDataDir) {
+		fileExists(cfg.Sherpa.VitsModel) &&
+		fileExists(cfg.Sherpa.VitsLexicon) &&
+		fileExists(cfg.Sherpa.VitsTokens) {
 		return "sherpa-onnx"
 	}
 	return "none"
@@ -1190,7 +1069,7 @@ func normalizeVoice(voice string) string {
 func healthMessage(engine string) string {
 	switch engine {
 	case "sherpa-onnx":
-		return "Sherpa-onnx Matcha TTS engine is available."
+		return "Sherpa-onnx VITS fanchen-C TTS engine is available."
 	default:
 		return "No TTS engine is available. Please reinstall the package or check /opt/wps-read-aloud/engines/sherpa-onnx and /opt/wps-read-aloud/voices/sherpa."
 	}
@@ -1229,13 +1108,10 @@ func friendlyError(err error) string {
 	}
 }
 
-func runtimeEnv(base []string, libDir string, dataDir string) []string {
+func runtimeEnv(base []string, libDir string) []string {
 	env := append([]string{}, base...)
 	if dirExists(libDir) {
 		env = append(env, "LD_LIBRARY_PATH="+prependEnv(os.Getenv("LD_LIBRARY_PATH"), libDir))
-	}
-	if dirExists(dataDir) {
-		env = append(env, "ESPEAK_DATA_PATH="+dataDir)
 	}
 	return env
 }
@@ -1281,6 +1157,10 @@ func clampRate(rate float64) float64 {
 		return 1.6
 	}
 	return rate
+}
+
+func vitsLengthScale(rate float64) float64 {
+	return 1.0 / clampRate(rate)
 }
 
 func sherpaNumThreads(numThreads int) int {
@@ -1358,34 +1238,23 @@ func loadSimpleYAML(path string, cfg *Config) error {
 			if parsed, err := strconv.Atoi(value); err == nil {
 				cfg.Sherpa.TargetSampleRate = parsed
 			}
-		case "sherpa.zh_matcha_model":
-			cfg.Sherpa.ZhMatchaModel = value
-		case "sherpa.zh_matcha_vocoder":
-			cfg.Sherpa.ZhMatchaVocoder = value
-		case "sherpa.zh_matcha_lexicon":
-			cfg.Sherpa.ZhMatchaLexicon = value
-		case "sherpa.zh_matcha_tokens":
-			cfg.Sherpa.ZhMatchaTokens = value
-		case "sherpa.zh_rule_fsts":
-			cfg.Sherpa.ZhRuleFsts = value
-		case "sherpa.en_matcha_model":
-			cfg.Sherpa.EnMatchaModel = value
-		case "sherpa.en_matcha_vocoder":
-			cfg.Sherpa.EnMatchaVocoder = value
-		case "sherpa.en_matcha_tokens":
-			cfg.Sherpa.EnMatchaTokens = value
-		case "sherpa.en_matcha_data_dir":
-			cfg.Sherpa.EnMatchaDataDir = value
+		case "sherpa.vits_model":
+			cfg.Sherpa.VitsModel = value
+		case "sherpa.vits_lexicon":
+			cfg.Sherpa.VitsLexicon = value
+		case "sherpa.vits_tokens":
+			cfg.Sherpa.VitsTokens = value
+		case "sherpa.vits_rule_fsts":
+			cfg.Sherpa.VitsRuleFsts = value
+		case "sherpa.vits_speaker_id":
+			if parsed, err := strconv.Atoi(value); err == nil {
+				cfg.Sherpa.VitsSpeakerID = parsed
+			}
 		}
 	}
 	cfg.Sherpa.Bin = filepath.Clean(cfg.Sherpa.Bin)
-	cfg.Sherpa.ZhMatchaModel = filepath.Clean(cfg.Sherpa.ZhMatchaModel)
-	cfg.Sherpa.ZhMatchaVocoder = filepath.Clean(cfg.Sherpa.ZhMatchaVocoder)
-	cfg.Sherpa.ZhMatchaLexicon = filepath.Clean(cfg.Sherpa.ZhMatchaLexicon)
-	cfg.Sherpa.ZhMatchaTokens = filepath.Clean(cfg.Sherpa.ZhMatchaTokens)
-	cfg.Sherpa.EnMatchaModel = filepath.Clean(cfg.Sherpa.EnMatchaModel)
-	cfg.Sherpa.EnMatchaVocoder = filepath.Clean(cfg.Sherpa.EnMatchaVocoder)
-	cfg.Sherpa.EnMatchaTokens = filepath.Clean(cfg.Sherpa.EnMatchaTokens)
-	cfg.Sherpa.EnMatchaDataDir = filepath.Clean(cfg.Sherpa.EnMatchaDataDir)
+	cfg.Sherpa.VitsModel = filepath.Clean(cfg.Sherpa.VitsModel)
+	cfg.Sherpa.VitsLexicon = filepath.Clean(cfg.Sherpa.VitsLexicon)
+	cfg.Sherpa.VitsTokens = filepath.Clean(cfg.Sherpa.VitsTokens)
 	return nil
 }

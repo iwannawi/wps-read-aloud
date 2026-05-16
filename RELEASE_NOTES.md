@@ -1,7 +1,7 @@
 # 发布说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.11
+版本：1.0.12
 架构：arm64
 开发者：zhangjingyao
 发布时间：20260515
@@ -24,12 +24,13 @@
 - WPS 通常会跟随当前选区滚动，从而保持当前朗读内容在页面中可见。
 - 本地服务只监听 `127.0.0.1:19860`。
 - 内置 Sherpa-onnx ARM64 离线语音运行环境。
-- 内置中文 `matcha-icefall-zh-baker`、英文 `matcha-icefall-en_US-ljspeech` 和共用 `vocos-22khz-univ.onnx` 声码器。
+- 弃用中文/英文 Matcha 双模型和 Vocos 声码器，统一改为 `vits-zh-hf-fanchen-C` 中文 VITS 单模型。
+- 对英文单词进行轻量正则预处理，把 `AI`、`Python`、`WPS` 等内容拆成清晰的字母序列后送入中文模型。
 - 安装时自动进行服务健康检查。
 - 安装时自动进行语音合成自检。
 - 朗读播放改为由本地服务调用系统播放器完成，规避 WPS 内置浏览器自动播放限制。
 - 修复朗读音量选项未实际生效的问题。服务端会对临时 WAV 做音量缩放，因此不依赖系统播放器是否支持音量参数。
-- 补充中文 `matcha-icefall-zh-baker` 模型的上游非商业数据集许可风险提示，方便企业交付前做合规复核。
+- 补充 `vits-zh-hf-fanchen-C` 模型上游许可证不明确的合规提示，方便企业交付前做复核。
 - 升级安装时会强制重启 `wps-tts.service`，避免加载项与旧版后台服务不匹配。
 - 修复 systemd 服务以桌面用户调用 `pw-play/paplay` 时无法读取临时 WAV 文件的问题。
 - 系统播放器改为顺序尝试 `pw-play`、`paplay`、`aplay`，如果 PipeWire 返回 `no node available`，会自动切换到下一种播放方式。
@@ -53,7 +54,7 @@
 ## 安装
 
 ```bash
-sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
+sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 ```
 
 如果安装时 WPS 已经打开，请安装完成后重启 WPS。
@@ -63,6 +64,5 @@ sudo dpkg -i wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 - 目标系统需要已经安装 WPS 2023 for Linux。
 - 当前句子选中和自动滚动依赖目标 WPS 版本对 `Range.Select()` 和 `ScrollIntoView()` 的支持情况。
 - 音频播放由本地服务调用系统播放器完成，避免 WPS 内置浏览器自动播放限制；用户主要通过 WPS 顶部“文档朗读”选项卡操作。
-- 中文片段使用 `matcha-icefall-zh-baker`。
-- 英文片段使用 `matcha-icefall-en_US-ljspeech`。
+- 当前版本优先保证中文文档朗读清晰度，英文内容按字母序列方式朗读。
 - 低性能或内存较小的机器上，建议优先使用“朗读选区”，避免一次朗读超长全文。

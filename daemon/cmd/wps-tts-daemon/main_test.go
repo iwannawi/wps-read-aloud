@@ -12,7 +12,7 @@ import (
 func TestPreparePlaybackWavAppliesVolumeOnCopy(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "source.wav")
-	spec := wavPCM{format: 1, channels: 1, sampleRate: 22050, bitsPerSample: 16}
+	spec := wavPCM{format: 1, channels: 1, sampleRate: 16000, bitsPerSample: 16}
 	pcm := make([]byte, 4)
 	putPCM16(pcm[0:2], 8000)
 	putPCM16(pcm[2:4], -8000)
@@ -69,5 +69,13 @@ func TestPreparePlaybackWavKeepsDefaultVolumePath(t *testing.T) {
 	defer cleanup()
 	if playPath != "/tmp/example.wav" {
 		t.Fatalf("play path = %q, want original path", playPath)
+	}
+}
+
+func TestPreprocessFanchenTextSpacesEnglishLetters(t *testing.T) {
+	got := preprocessFanchenText("深度学习是AI的核心技术，使用Python进行开发。")
+	want := "深度学习是 A I 的核心技术，使用 P y t h o n 进行开发。"
+	if got != want {
+		t.Fatalf("preprocessed text = %q, want %q", got, want)
 	}
 }

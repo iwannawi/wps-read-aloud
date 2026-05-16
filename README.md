@@ -18,10 +18,10 @@
 ## 工作方式
 
 ```text
-WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx Matcha 双模型 -> 系统播放器播放音频
+WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx VITS fanchen-C 单模型 -> 系统播放器播放音频
 ```
 
-Sherpa-onnx 是唯一离线语音合成引擎。中文片段使用 `matcha-icefall-zh-baker`，英文片段使用 `matcha-icefall-en_US-ljspeech`，两者共用 `vocos-22khz-univ.onnx` 声码器，原生输出 `22050 Hz` 单声道 WAV。服务会用正则表达式把中英文混合文本切分成片段，分别调用对应模型合成，再把音频无重采样拼接成一段完整音频。播放时优先使用已经探测成功的系统播放器；如果还没有探测结果，会依次尝试系统已有的 `pw-play`、`paplay` 或 `aplay`。所有文本只发送到本机回环地址，不访问外网。
+Sherpa-onnx 是唯一离线语音合成引擎。当前版本统一使用 `vits-zh-hf-fanchen-C` 中文 VITS 模型，原生输出 `16000 Hz` 单声道 WAV。服务不再使用中英文双模型切换；对于文档中的少量英文，服务会在文本预处理阶段把英文单词拆成带空格的字母序列，例如 `Python` 会送入模型为 `P y t h o n`，优先保证中文文档朗读清晰、稳定、低资源占用。播放时优先使用已经探测成功的系统播放器；如果还没有探测结果，会依次尝试系统已有的 `pw-play`、`paplay` 或 `aplay`。所有文本只发送到本机回环地址，不访问外网。
 
 朗读时会按完整语句切分、逐句合成并播放；加载项会在 WPS 文档中选中当前朗读语句，进入下一句时同步选中下一句。顶部选项卡提供“全文朗读、当前位置朗读、选区朗读”三种入口。低配置机器上建议优先使用“选区朗读”或“当前位置朗读”，加载项会限制单次句子数量和单句长度，避免长文档造成长时间等待或资源占用过高。
 
@@ -67,12 +67,10 @@ dist/wps-tts-daemon
 ```text
 engines/sherpa-onnx/sherpa-onnx-offline-tts
 engines/sherpa-onnx/lib/
-voices/sherpa/matcha-icefall-zh-baker/
-voices/sherpa/matcha-icefall-en_US-ljspeech/
-voices/sherpa/vocos-22khz-univ.onnx
+voices/sherpa/vits-zh-hf-fanchen-C/
 ```
 
-合规提示：当前中文模型 `matcha-icefall-zh-baker` 的上游说明提示训练数据集仅限非商业用途。若用于正式政企或商业交付，应先取得商业授权，或替换为许可允许商业分发和使用的中文模型。
+合规提示：当前中文模型 `vits-zh-hf-fanchen-C` 上游 Hugging Face 仓库未提供完整模型卡和明确许可证。若用于正式政企或商业交付，应先完成模型来源、训练数据和再分发许可复核，必要时取得授权或替换为许可明确的中文模型。
 
 这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。
 
@@ -89,7 +87,7 @@ python3 packaging/deb/build_deb.py
 最终交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 ```
 
 ## 安装
@@ -97,7 +95,7 @@ dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
 在银河麒麟 V10 ARM64 目标机执行：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.11_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 ```
 
 安装包会：
