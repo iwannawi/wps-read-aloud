@@ -8,14 +8,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PKG_NAME = "wps-read-aloud-zhangjingyao"
-VERSION = os.environ.get("VERSION", "1.0.15")
+PKG_NAME = "wps-read-aloud-xc"
+ARTIFACT_NAME = "wps-read-aloud-XC"
+VERSION = os.environ.get("VERSION", "1.0.16")
 ARCH = os.environ.get("ARCH", "arm64")
 BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{ARCH}"
 DATA = BUILD / "data"
 DEBIAN = BUILD / "DEBIAN"
 OUT = ROOT / "dist"
-DEB = OUT / f"{PKG_NAME}_{VERSION}_{ARCH}.deb"
+DEB = OUT / f"{ARTIFACT_NAME}_{VERSION}_{ARCH}.deb"
 ADDIN = ROOT / "addin"
 EMBEDDED_WEB = ROOT / "daemon" / "cmd" / "wps-tts-daemon" / "web"
 
@@ -217,7 +218,7 @@ def main() -> None:
     shutil.copy2(ROOT / "packaging" / "deb" / "wps-tts.service", DATA / "lib/systemd/system/wps-tts.service")
     (DATA / "usr/bin").mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "packaging" / "deb" / "wps-read-aloud-register", DATA / "usr/bin/wps-read-aloud-register")
-    doc_dir = DATA / "usr/share/doc/wps-read-aloud-zhangjingyao"
+    doc_dir = DATA / "usr/share/doc/wps-read-aloud-xc"
     doc_dir.mkdir(parents=True, exist_ok=True)
     for doc in DOC_FILES:
         shutil.copy2(ROOT / "third_party_licenses" / doc, doc_dir / doc)

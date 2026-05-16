@@ -10,7 +10,8 @@ APP_DIR="/opt/wps-read-aloud"
 CONFIG_DIR="/etc/wps-read-aloud"
 SERVICE_FILE="/lib/systemd/system/wps-tts.service"
 REGISTER_BIN="/usr/bin/wps-read-aloud-register"
-MARKER="${APP_DIR}/.wps-read-aloud-zhangjingyao"
+MARKER="${APP_DIR}/.wps-read-aloud-xc"
+LEGACY_MARKER="${APP_DIR}/.wps-read-aloud-zhangjingyao"
 PORT="19860"
 
 is_upgrade_or_reinstall() {
@@ -18,7 +19,7 @@ is_upgrade_or_reinstall() {
 }
 
 owned_app_dir() {
-  [[ -f "${MARKER}" ]]
+  [[ -f "${MARKER}" || -f "${LEGACY_MARKER}" ]]
 }
 
 if is_upgrade_or_reinstall "${1:-}"; then

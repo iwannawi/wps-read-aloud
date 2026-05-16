@@ -26,14 +26,16 @@ import (
 	"syscall"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.15"
+const AppVersion = "1.0.16"
 
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
+const prefetchTextTarget = 100
 
 type Config struct {
 	Listen string
@@ -304,7 +306,7 @@ func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join("/usr/share/doc/wps-read-aloud-zhangjingyao", name))
+	http.ServeFile(w, r, filepath.Join("/usr/share/doc/wps-read-aloud-xc", name))
 }
 
 func (s *Server) speak(w http.ResponseWriter, r *http.Request) {
@@ -608,14 +610,8 @@ func (s *Server) stopLocked() {
 
 func (rs *readSession) run() {
 	defer rs.cleanup()
-	warmup := rs.prefetch
-	if warmup < 1 {
-		warmup = 1
-	}
-	if warmup > len(rs.sentences) {
-		warmup = len(rs.sentences)
-	}
-	rs.setState("preparing", "正在预生成前 "+strconv.Itoa(warmup)+" 句，请稍候", -1)
+	warmup := rs.prefetchCount(0)
+	rs.setState("preparing", "请耐心等待，朗读模块正在启动", -1)
 	for i := 0; i < warmup; i++ {
 		entry := rs.ensureAudio(i)
 		if err := rs.waitEntry(entry); err != nil {
@@ -665,13 +661,32 @@ func (rs *readSession) run() {
 }
 
 func (rs *readSession) ensurePrefetch(start int) {
-	rs.mu.Lock()
-	prefetch := rs.prefetch
-	total := len(rs.sentences)
-	rs.mu.Unlock()
-	for i := start; i < total && i < start+prefetch; i++ {
+	count := rs.prefetchCount(start)
+	for i := start; i < start+count; i++ {
 		rs.ensureAudio(i)
 	}
+}
+
+func (rs *readSession) prefetchCount(start int) int {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	total := len(rs.sentences)
+	if start < 0 {
+		start = 0
+	}
+	if start >= total {
+		return 0
+	}
+	count := 0
+	runes := 0
+	for i := start; i < total; i++ {
+		count++
+		runes += utf8.RuneCountInString(rs.sentences[i].Text)
+		if runes >= prefetchTextTarget {
+			break
+		}
+	}
+	return count
 }
 
 func (rs *readSession) ensureAudio(index int) *audioCacheEntry {

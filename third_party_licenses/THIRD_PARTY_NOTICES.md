@@ -1,10 +1,11 @@
 # 第三方组件声明
 
-软件包：wps-read-aloud-zhangjingyao
-开发者：zhangjingyao
+软件名称：WPS 文档朗读助手
+软件包：wps-read-aloud-XC
+开发者：Zhang Jingyao
 发布时间：20260516
 
-本软件包内置第三方离线语音运行组件，便于在纯净银河麒麟 V10 ARM64 系统上安装后直接使用。
+本软件包内置第三方离线语音运行组件，便于在纯净 ARM64 麒麟操作系统上安装后直接使用。
 
 ## 内置组件
 
@@ -12,7 +13,7 @@
 | --- | --- | --- | --- |
 | Sherpa-onnx | `/opt/wps-read-aloud/engines/sherpa-onnx/*` | Apache License 2.0 | https://github.com/k2-fsa/sherpa-onnx |
 | ONNX Runtime | `/opt/wps-read-aloud/engines/sherpa-onnx/lib/libonnxruntime*` | MIT | https://github.com/microsoft/onnxruntime |
-| 中文 VITS 模型 | `/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/*` | 上游模型许可证未明确，正式商用需授权确认或替换模型 | https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models |
+| 中文 VITS 模型 | `/opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/*` | 上游模型许可未明确，正式商用需授权确认或替换模型 | https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models |
 
 ## 隔离说明
 

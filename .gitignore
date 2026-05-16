@@ -1,5 +1,6 @@
 # 构建缓存和临时目录
 .gocache/
+.gocache*/
 .gocache2/
 build/
 downloads/

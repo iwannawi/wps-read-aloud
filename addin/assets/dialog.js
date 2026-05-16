@@ -32,6 +32,7 @@
       payload = {};
     }
 
+    document.body.className = payload.compact ? "compact" : "";
     document.title = payload.title || "文档朗读";
     document.getElementById("dialogTitle").textContent = payload.title || "文档朗读";
     document.getElementById("dialogMessage").textContent = payload.message || "";
@@ -85,11 +86,26 @@
     document.getElementById("closeBtn").onclick = function () {
       window.close();
     };
-    if (payload.autoCloseMs) {
-      setTimeout(function () {
-        window.close();
-      }, Math.max(1000, Number(payload.autoCloseMs) || 1000));
+    if (payload.startup) {
+      closeWhenPlaybackStarts();
     }
+  }
+
+  function closeWhenPlaybackStarts() {
+    setInterval(function () {
+      fetch("/read/status", { cache: "no-store" })
+        .then(function (response) {
+          return response.ok ? response.json() : null;
+        })
+        .then(function (data) {
+          if (data && data.state === "playing") {
+            window.close();
+          }
+        })
+        .catch(function () {
+          // Keep the startup dialog open when the service is still starting.
+        });
+    }, 300);
   }
 
   function showMainView() {

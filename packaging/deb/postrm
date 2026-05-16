@@ -9,7 +9,7 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] postrm $*"
 systemctl daemon-reload || true
 
 if [[ "${1:-}" = "purge" ]]; then
-  if [[ -f /opt/wps-read-aloud/.wps-read-aloud-zhangjingyao ]]; then
+  if [[ -f /opt/wps-read-aloud/.wps-read-aloud-xc || -f /opt/wps-read-aloud/.wps-read-aloud-zhangjingyao ]]; then
     rm -rf /opt/wps-read-aloud
   else
     echo "Skip removing /opt/wps-read-aloud because ownership marker is missing."

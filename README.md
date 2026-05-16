@@ -1,68 +1,39 @@
-# WPS 文档朗读加载项
+# WPS 文档朗读助手
 
 目标环境：
-
-- 银河麒麟 V10 ARM64
-- WPS 2023 for Linux 12.1.x
+- ARM64 麒麟操作系统
+- WPS Office 2023 for Linux / WPS Office 2019 for Linux
 - 允许安装 WPS JS 加载项
 - WPS JS API 可读取 WPS 文字选区和全文
 - 本机允许访问 `127.0.0.1`
 
-本项目采用：
+本项目提供一个离线 WPS 文档朗读加载项。WPS 顶部新增“文档朗读”选项卡，用户可以从当前光标处开始朗读，支持连页朗读、当页朗读、语速选择、状态检查和关于说明。
 
-- `addin/`：WPS JS 加载项源文件，在 WPS 顶部新增“文档朗读”选项卡。
-- `daemon/`：Go 本地服务，只监听 `127.0.0.1:19860`。
-- `packaging/deb/`：企业交付用 `.deb` 打包脚本和 Debian 控制脚本。
-- `packaging/sync_addin_web.py`：把 `addin/` 同步到 Go embedded web 目录，避免嵌入资源和源加载项不一致。
+## 项目结构
+
+```text
+addin/                         WPS JS 加载项源文件
+daemon/                        Go 本地服务，监听 127.0.0.1:19860
+packaging/deb/                 企业交付用 .deb 打包脚本和 Debian 控制脚本
+packaging/sync_addin_web.py    同步 addin/ 到 Go embed 目录
+third_party_licenses/          第三方许可证和声明
+engines/                       打包时放置 Sherpa-onnx 运行文件
+voices/                        打包时放置离线语音模型
+```
 
 ## 工作方式
 
 ```text
-WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx VITS fanchen-C 单模型 -> 系统播放器播放音频
+WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx VITS fanchen-C -> 系统播放器
 ```
 
-Sherpa-onnx 是唯一离线语音合成引擎。当前版本统一使用 `vits-zh-hf-fanchen-C` 中文 VITS 模型，原生输出 `16000 Hz` 单声道 WAV。服务不再使用中英文双模型切换；对于文档中的少量英文和数字，服务会在文本预处理阶段转为逐字符中文读法，例如 `WPS 2026` 会按单字符读出，避免模型跳过英文或数字。播放时优先使用已经探测成功的系统播放器；如果还没有探测结果，会依次尝试系统已有的 `pw-play`、`paplay` 或 `aplay`。所有文本只发送到本机回环地址，不访问外网。
+服务只监听 `127.0.0.1:19860`，不访问外网。当前版本统一使用 `vits-zh-hf-fanchen-C` 中文 VITS 模型。英文和数字会在文本预处理阶段转换为逐字符中文读法，例如 `WPS 2026` 会逐字符读出，避免模型跳过英文或数字。
 
-朗读时会按完整语句切分、逐句合成并播放；加载项会在 WPS 文档中选中当前朗读语句，进入下一句时同步选中下一句。顶部选项卡提供 7 个入口：开始朗读、停止朗读、朗读方式、朗读语速、状态检查、关于朗读等。默认使用“连页朗读”，从当前光标处读到文档末尾；在“朗读方式”下拉框切换到“当页朗读”后，从当前光标处读到当前页末尾。服务端会先预生成前三句音频，再开始播放第一句，减少句间等待。朗读进行中会锁定开始按钮、朗读方式和朗读语速，避免状态不一致。
-
-## 目录
-
-```text
-addin/
-  manifest.xml
-  ribbon.xml
-  index.html
-  assets/
-daemon/
-  cmd/wps-tts-daemon/main.go
-  config.example.yaml
-packaging/
-  sync_addin_web.py
-  deb/
-  kylin/
-third_party_licenses/
-voices/
-  .gitkeep
-```
-
-## 构建本地服务
-
-在项目根目录执行：
-
-```bash
-chmod +x packaging/kylin/build-arm64.sh
-./packaging/kylin/build-arm64.sh
-```
-
-该脚本会先同步 `addin/` 到 `daemon/cmd/wps-tts-daemon/web/`，再交叉编译 Linux ARM64 服务：
-
-```text
-dist/wps-tts-daemon
-```
+朗读时按完整语句切分、逐句合成并播放；加载项会在 WPS 文档中同步选中当前朗读语句，并尽量保持当前语句可见。启动朗读时，服务按句动态预处理，累计文本达到约 100 字即可开始播放；如果第一句已超过 100 字，只等待第一句合成完成，减少启动等待。
 
 ## 准备离线依赖
 
-打包前必须准备：
+打包前需要准备：
 
 ```text
 engines/sherpa-onnx/sherpa-onnx-offline-tts
@@ -70,46 +41,45 @@ engines/sherpa-onnx/lib/
 voices/sherpa/vits-zh-hf-fanchen-C/
 ```
 
-合规提示：当前中文模型 `vits-zh-hf-fanchen-C` 上游 Hugging Face 仓库未提供完整模型卡和明确许可证。若用于正式政企或商业交付，应先完成模型来源、训练数据和再分发许可复核，必要时取得授权或替换为许可明确的中文模型。
-
 这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。
 
-## 生成 DEB 安装包
+## 构建
 
-统一使用 Python 打包入口：
+先同步加载项到 Go embed 目录：
+
+```bash
+python3 packaging/sync_addin_web.py
+```
+
+交叉编译 Linux ARM64 服务后，生成安装包：
 
 ```bash
 python3 packaging/deb/build_deb.py
 ```
 
-兼容脚本 `packaging/deb/build-deb.sh` 和 `packaging/deb/build-deb.ps1` 也会转调同一个 `build_deb.py`，避免不同脚本生成不同安装包。
-
 最终交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.15_arm64.deb
+dist/wps-read-aloud-XC_1.0.16_arm64.deb
 ```
 
 ## 安装
 
-在银河麒麟 V10 ARM64 目标机执行：
+在 ARM64 麒麟目标机执行：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.15_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-XC_1.0.16_arm64.deb
 ```
 
 安装包会：
-
-- 安装 `/opt/wps-read-aloud`
-- 安装 `/etc/wps-read-aloud/config.yaml`
-- 安装并启动系统服务 `wps-tts.service`
-- 覆盖升级时重启 `wps-tts.service`，避免 WPS 加载项与旧版后台服务不匹配
-- 安装时探测当前环境可用播放器，并保存到 `/var/lib/wps-read-aloud/audio-player.json`
+- 安装程序文件到 `/opt/wps-read-aloud`
+- 安装配置文件到 `/etc/wps-read-aloud/config.yaml`
+- 安装并启动 `wps-tts.service`
 - 为已有普通用户注册 WPS JS 加载项
 - 写入安装日志 `/var/log/wps-read-aloud-install.log`
-- 安装第三方组件许可证和交付说明到 `/usr/share/doc/wps-read-aloud-zhangjingyao/`
+- 安装第三方组件许可证和交付说明到 `/usr/share/doc/wps-read-aloud-xc/`
 
-如果 WPS 已打开，需要重启 WPS 后才能加载新的“文档朗读”选项卡。
+如果 WPS 已打开，安装后需要重启 WPS 才能加载新版“文档朗读”选项卡。
 
 ## 验证
 
@@ -119,36 +89,11 @@ curl http://127.0.0.1:19860/health
 curl http://127.0.0.1:19860/selftest
 ```
 
-打开 WPS 文字后，顶部应出现“文档朗读”选项卡。优先点击“状态检查”，如果弹出服务状态提示，说明 Ribbon 按钮回调已经正常触发。
+打开 WPS 文字后，顶部应出现“文档朗读”选项卡。优先点击“状态检查”，如果弹出服务状态提示，说明 Ribbon 按钮回调已正常触发。
 
-## API
-
-```http
-GET /health
-GET /selftest
-GET /audio/probe
-POST /audio/probe
-POST /read/start
-GET /read/status
-POST /read/settings
-POST /read/stop
-POST /read/pause
-POST /read/resume
-POST /play
-POST /synthesize
-POST /speak
-POST /stop
-POST /pause
-POST /resume
-GET /voices
-```
-
-加载项默认使用 `/read/*` 会话接口由本地服务完成预合成、暂停、继续、停止和系统侧播放，避免 WPS 内置浏览器自动播放限制；`POST /synthesize` 保留为 WAV 合成接口，`POST /speak` 作为兼容别名保留。
-
-## Git 管理
+## 版本管理
 
 源码、脚本、配置、文档和许可证进入 Git。以下内容不进入普通 Git：
-
 - `dist/`
 - `engines/`
 - `tools/`

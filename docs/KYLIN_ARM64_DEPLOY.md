@@ -1,9 +1,9 @@
-# 银河麒麟 V10 ARM64 部署清单
+# ARM64 麒麟操作系统部署清单
 
 ## 1. 目标环境
 
-- 银河麒麟 V10 ARM64
-- WPS 2023 for Linux 12.1.x
+- ARM64 麒麟操作系统
+- WPS Office 2023 for Linux / WPS Office 2019 for Linux
 - 允许安装 WPS JS 加载项
 - 允许访问 `127.0.0.1:19860`
 
@@ -12,16 +12,16 @@
 企业交付优先使用 `.deb`：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.15_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-XC_1.0.16_arm64.deb
 ```
 
 安装后会自动：
-
 - 安装 `/opt/wps-read-aloud`
 - 安装 `/etc/wps-read-aloud/config.yaml`
 - 安装并启动 `wps-tts.service`
 - 为已有普通用户注册 WPS 加载项
 - 写入日志 `/var/log/wps-read-aloud-install.log`
+- 安装说明和许可证到 `/usr/share/doc/wps-read-aloud-xc`
 
 如果安装前 WPS 已打开，需要重启 WPS。
 
@@ -40,15 +40,16 @@ curl http://127.0.0.1:19860/selftest
 打开 WPS 文字后，顶部应出现“文档朗读”选项卡。
 
 验收点：
-
 - 能看到“文档朗读”选项卡。
-- “朗读选区”能读取当前选中内容。
-- “朗读全文”能读取当前文档正文。
-- “暂停”“继续”“停止”按钮可用。
+- “开始朗读”可按当前朗读方式启动。
+- “朗读方式”可选择连页朗读或当页朗读，默认连页朗读。
+- “朗读语速”可选择 `0.75x`、`1x`、`1.5x`。
+- 朗读中开始朗读、朗读方式、朗读语速、状态检查、关于朗读均置灰。
 - “状态检查”能弹出本地服务状态。
+- “关于朗读”显示 WPS 文档朗读助手、版本、开发者和说明文件。
 - 朗读时 WPS 文档中当前语句会被选中，进入下一句时同步更新选区。
 - 服务接口只监听 `127.0.0.1:19860`。
-- 断网状态下 Sherpa-onnx 中文/英文离线模型能正常工作。
+- 断网状态下 Sherpa-onnx 离线模型能正常工作。
 
 ## 5. 手工构建流程
 

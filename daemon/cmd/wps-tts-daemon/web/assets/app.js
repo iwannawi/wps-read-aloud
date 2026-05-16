@@ -35,14 +35,16 @@
     var payload = encodeURIComponent(toBase64(JSON.stringify(options || {})));
     var url = SERVICE_BASE + "/dialog.html?payload=" + payload;
     var title = options && options.title ? options.title : "文档朗读";
+    var width = options && options.width ? Number(options.width) : 880;
+    var height = options && options.height ? Number(options.height) : 680;
 
     try {
       if (window.wps && typeof window.wps.ShowDialog === "function") {
-        window.wps.ShowDialog(url, title, 880, 680, false);
+        window.wps.ShowDialog(url, title, width, height, false);
         return null;
       }
       if (window.Application && typeof window.Application.ShowDialog === "function") {
-        window.Application.ShowDialog(url, title, 880, 680, false);
+        window.Application.ShowDialog(url, title, width, height, false);
         return null;
       }
     } catch (_) {
@@ -50,7 +52,7 @@
     }
 
     try {
-      var popup = window.open(url, "wpsReadAloudDialog", "width=880,height=680,resizable=yes,scrollbars=yes");
+      var popup = window.open(url, "wpsReadAloudDialog", "width=" + width + ",height=" + height + ",resizable=yes,scrollbars=yes");
       if (popup && typeof popup.focus === "function") {
         popup.focus();
         return popup;
@@ -60,6 +62,19 @@
     }
     dialogFallback(options);
     return null;
+  }
+
+  function showStartupDialog() {
+    var options = {
+      title: "朗读正在启动",
+      variant: "info",
+      compact: true,
+      startup: true,
+      width: 520,
+      height: 190,
+      message: "请耐心等待，朗读模块正在启动... ..."
+    };
+    return showDialog(options);
   }
 
   function toBase64(text) {
@@ -417,13 +432,8 @@
     var token = playbackToken;
     setReadingState(true);
     lastSelectedIndex = -1;
-    status("正在预生成前三句音频，请稍候。");
-    var startupPopup = showDialog({
-      title: "朗读正在启动",
-      variant: "info",
-      message: "稍等片刻，朗读正在启动",
-      autoCloseMs: 12000
-    });
+    status("请耐心等待，朗读模块正在启动... ...");
+    var startupPopup = showStartupDialog();
 
     try {
       await request("/read/start", {
@@ -434,7 +444,7 @@
             return { text: segment.text };
           }),
           rate: rate,
-          prefetch: 3
+          prefetch: 0
         })
       });
       await pollReadStatus(token, segments, startupPopup);
@@ -586,7 +596,9 @@
       "modePageItem",
       "rate075",
       "rate10",
-      "rate15"
+      "rate15",
+      "checkStatus",
+      "aboutAddin"
     ].forEach(function (id) {
       try {
         ui.InvalidateControl(id);
@@ -606,7 +618,7 @@
     if (id === "stopSpeak") {
       return isReading;
     }
-    if (id === "modeMenu" || id === "rateMenu") {
+    if (id === "modeMenu" || id === "rateMenu" || id === "checkStatus" || id === "aboutAddin") {
       return !isReading;
     }
     return true;
@@ -665,14 +677,16 @@
 
   function onAbout() {
     showDialog({
-      title: "WPS 文档朗读加载项",
+      title: "WPS 文档朗读助手",
       variant: "info",
       message: "离线文档朗读工具",
       fields: [
-        { label: "适用环境", value: "银河麒麟 V10 ARM64 / WPS 2023 for Linux" },
-        { label: "开发者", value: "zhangjingyao" },
+        { label: "适用操作系统", value: "ARM64 麒麟操作系统" },
+        { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
+        { label: "开发者", value: "Zhang Jingyao" },
         { label: "发布时间", value: "20260516" },
-        { label: "版本", value: "1.0.15" },
+        { label: "版本", value: "1.0.16" },
+        { label: "软件包", value: "wps-read-aloud-XC" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],
       links: [

@@ -21,8 +21,8 @@
           </menu>
         </group>
         <group id="serviceGroup" label="服务">
-          <button id="checkStatus" label="状态检查" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="状态检查" supertip="检查本地朗读服务、语音引擎和播放器探测结果。"/>
-          <button id="aboutAddin" label="关于朗读" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="关于朗读" supertip="查看加载项名称、版本、开发者和说明文档链接。"/>
+          <button id="checkStatus" label="状态检查" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="状态检查" supertip="检查本地朗读服务、语音引擎和播放器探测结果。"/>
+          <button id="aboutAddin" label="关于朗读" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="关于朗读" supertip="查看加载项名称、版本、开发者和说明文档链接。"/>
         </group>
       </tab>
     </tabs>
