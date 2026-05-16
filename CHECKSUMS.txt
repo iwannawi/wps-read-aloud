@@ -1,15 +1,16 @@
 # 校验说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.12
+版本：1.0.13
 架构：arm64
 开发者：zhangjingyao
-发布时间：20260515
+发布时间：20260516
 
-每次重新构建安装包后，SHA256 都会变化。最终交付值以交付说明中的 SHA256 为准。
+本文件会随安装包一起打入 `.deb`，因此不能在包内记录自身最终 SHA256。
+最终交付包 SHA256 以 GitHub Release 说明、交付回复和同目录 `.sha256` 文件为准。
 
 在目标系统上可以使用以下命令校验：
 
 ```bash
-sha256sum wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
+sha256sum wps-read-aloud-zhangjingyao_1.0.13_arm64.deb
 ```

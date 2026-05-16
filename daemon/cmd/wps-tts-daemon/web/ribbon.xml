@@ -14,19 +14,13 @@
           <button id="stopSpeak" label="停止朗读" size="large" getImage="ribbon.GetImage" onAction="ribbon.OnAction" screentip="停止朗读" supertip="停止当前朗读。"/>
         </group>
         <group id="settingGroup" label="朗读设置">
-          <menu id="rateMenu" label="朗读语速" size="large" getImage="ribbon.GetImage" screentip="朗读语速" supertip="选择朗读语速，默认 1.0x。">
-            <button id="rate06" label="0.6x" onAction="ribbon.OnAction"/>
-            <button id="rate08" label="0.8x" onAction="ribbon.OnAction"/>
-            <button id="rate10" label="1.0x（默认）" onAction="ribbon.OnAction"/>
-            <button id="rate12" label="1.2x" onAction="ribbon.OnAction"/>
-            <button id="rate14" label="1.4x" onAction="ribbon.OnAction"/>
-            <button id="rate16" label="1.6x" onAction="ribbon.OnAction"/>
-          </menu>
-          <menu id="volumeMenu" label="朗读音量" size="large" getImage="ribbon.GetImage" screentip="朗读音量" supertip="选择朗读音量，默认 80%。">
-            <button id="volume40" label="40%" onAction="ribbon.OnAction"/>
-            <button id="volume60" label="60%" onAction="ribbon.OnAction"/>
-            <button id="volume80" label="80%（默认）" onAction="ribbon.OnAction"/>
-            <button id="volume100" label="100%" onAction="ribbon.OnAction"/>
+          <menu id="rateMenu" getLabel="ribbon.GetLabel" size="large" getImage="ribbon.GetImage" screentip="朗读语速" supertip="选择朗读语速，默认 1.0x。">
+            <toggleButton id="rate06" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
+            <toggleButton id="rate08" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
+            <toggleButton id="rate10" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
+            <toggleButton id="rate12" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
+            <toggleButton id="rate14" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
+            <toggleButton id="rate16" getLabel="ribbon.GetLabel" getPressed="ribbon.GetPressed" onAction="ribbon.OnAction"/>
           </menu>
         </group>
         <group id="serviceGroup" label="服务">

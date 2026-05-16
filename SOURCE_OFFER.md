@@ -1,9 +1,9 @@
 # 第三方源码获取说明
 
 软件包：wps-read-aloud-zhangjingyao
-版本：1.0.12
+版本：1.0.13
 开发者：zhangjingyao
-发布时间：20260515
+发布时间：20260516
 
 本软件包内置第三方开源组件，以便在纯净银河麒麟 V10 ARM64 系统上离线运行。第三方组件安装在 `/opt/wps-read-aloud`，许可证和声明文件安装在 `/usr/share/doc/wps-read-aloud-zhangjingyao`。
 

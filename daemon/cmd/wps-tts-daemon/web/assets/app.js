@@ -8,12 +8,12 @@
   var SENTENCE_END = /[。！？!?；;]+|[\r\n]+/g;
 
   var rate = 1.0;
-  var volume = 80;
   var currentAbortController = null;
   var playbackToken = 0;
   var isReading = false;
   var isPaused = false;
   var lastActionAt = 0;
+  var lastSelectedIndex = -1;
 
   function notify(message, title, variant) {
     showDialog({
@@ -89,7 +89,6 @@
       resumeSpeak: "assets/icons/play.png",
       stopSpeak: "assets/icons/stop.png",
       rateMenu: "assets/icons/rate.png",
-      volumeMenu: "assets/icons/volume.png",
       checkStatus: "assets/icons/status.png",
       aboutAddin: "assets/icons/about.png"
     };
@@ -310,39 +309,6 @@
     }
   }
 
-  async function playSegment(segment, token) {
-    var controller = new AbortController();
-    currentAbortController = controller;
-    var timer = setTimeout(function () {
-      controller.abort();
-    }, 180000);
-    try {
-      var response = await fetch(SERVICE_BASE + "/play", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          text: segment.text,
-          voice: "default",
-          rate: rate,
-          volume: volume
-        })
-      });
-      var data = await parseJsonResponse(response, "/play");
-      if (!response.ok) {
-        throw new Error(data.error || response.statusText);
-      }
-      if (token !== playbackToken) {
-        throw new Error("朗读已取消。");
-      }
-    } finally {
-      clearTimeout(timer);
-      if (currentAbortController === controller) {
-        currentAbortController = null;
-      }
-    }
-  }
-
   async function speakSource(source) {
     if (throttleAction()) {
       return;
@@ -375,23 +341,21 @@
     var token = playbackToken;
     isPaused = false;
     isReading = true;
+    lastSelectedIndex = -1;
 
     try {
-      for (var i = 0; i < segments.length; i += 1) {
-        if (token !== playbackToken) {
-          break;
-        }
-        while (isPaused && token === playbackToken) {
-          await sleep(100);
-        }
-        var segment = segments[i];
-        selectDocumentRange(segment);
-        status("正在朗读第 " + (i + 1) + " / " + segments.length + " 句。");
-        await playSegment(segment, token);
-      }
-      if (token === playbackToken) {
-        status("朗读完成。");
-      }
+      await request("/read/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sentences: segments.map(function (segment) {
+            return { text: segment.text };
+          }),
+          rate: rate,
+          prefetch: 3
+        })
+      });
+      await pollReadStatus(token, segments);
     } catch (error) {
       if (token === playbackToken) {
         notify(userMessage(error));
@@ -400,6 +364,31 @@
       if (token === playbackToken) {
         isReading = false;
       }
+    }
+  }
+
+  async function pollReadStatus(token, segments) {
+    while (token === playbackToken) {
+      var data = await request("/read/status");
+      var index = Number(data.current_index);
+      if (index >= 0 && index < segments.length && index !== lastSelectedIndex) {
+        lastSelectedIndex = index;
+        selectDocumentRange(segments[index]);
+      }
+      if (data.message) {
+        status(data.message);
+      }
+      if (data.state === "done") {
+        status("朗读完成。");
+        break;
+      }
+      if (data.state === "stopped" || data.state === "idle") {
+        break;
+      }
+      if (data.state === "error") {
+        throw new Error(data.error || data.message || "朗读失败。");
+      }
+      await sleep(200);
     }
   }
 
@@ -416,8 +405,9 @@
     playbackToken += 1;
     isPaused = false;
     isReading = false;
+    lastSelectedIndex = -1;
     clearAudio();
-    postControl("/stop");
+    postControl("/read/stop");
     if (!silent) {
       status("已停止。");
     }
@@ -432,7 +422,7 @@
       return;
     }
     isPaused = true;
-    postControl("/pause");
+    postControl("/read/pause");
     status("已暂停。");
   }
 
@@ -441,7 +431,7 @@
       return;
     }
     isPaused = false;
-    postControl("/resume");
+    postControl("/read/resume");
     status("已继续。");
   }
 
@@ -456,6 +446,8 @@
     };
     var id = selectedId || controlId(control);
     rate = map[id] || 1.0;
+    sendReadSettings();
+    invalidateSettingsControls();
     status("语速已设置为 " + rate + "x。");
   }
 
@@ -471,20 +463,61 @@
     return map[String(rate)] || "rate10";
   }
 
-  function onVolumeChanged(control, selectedId) {
-    var map = {
-      volume40: 40,
-      volume60: 60,
-      volume80: 80,
-      volume100: 100
-    };
-    var id = selectedId || controlId(control);
-    volume = map[id] || 80;
-    status("音量已设置为 " + volume + "%。");
+  function sendReadSettings() {
+    if (!isReading) {
+      return;
+    }
+    request("/read/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rate: rate })
+    }).catch(function (error) {
+      status(userMessage(error));
+    });
   }
 
-  function onVolumeSelected() {
-    return "volume" + String(volume || 80);
+  function invalidateSettingsControls() {
+    var ui = window.__wpsReadAloudRibbon;
+    if (!ui || typeof ui.InvalidateControl !== "function") {
+      return;
+    }
+    [
+      "rateMenu",
+      "rate06",
+      "rate08",
+      "rate10",
+      "rate12",
+      "rate14",
+      "rate16"
+    ].forEach(function (id) {
+      try {
+        ui.InvalidateControl(id);
+      } catch (_) {}
+    });
+  }
+
+  function onGetPressed(control) {
+    var id = controlId(control);
+    return id === onRateSelected();
+  }
+
+  function onGetLabel(control) {
+    var id = controlId(control);
+    var rateLabels = {
+      rate06: "0.6x",
+      rate08: "0.8x",
+      rate10: "1.0x（默认）",
+      rate12: "1.2x",
+      rate14: "1.4x",
+      rate16: "1.6x"
+    };
+    if (id === "rateMenu") {
+      return "朗读语速 " + String(rate) + "x";
+    }
+    if (rateLabels[id]) {
+      return (id === onRateSelected() ? "✓ " : "") + rateLabels[id];
+    }
+    return "";
   }
 
   async function onCheckStatus() {
@@ -523,8 +556,8 @@
       message: "面向银河麒麟 V10 ARM64 与 WPS 2023 for Linux 的离线文档朗读加载项。",
       fields: [
         { label: "开发者", value: "zhangjingyao" },
-        { label: "发布时间", value: "20260515" },
-        { label: "版本", value: "1.0.12" },
+        { label: "发布时间", value: "20260516" },
+        { label: "版本", value: "1.0.13" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],
       links: [
@@ -588,10 +621,6 @@
       onRateChanged(control, id);
       return;
     }
-    if (/^volume/.test(id)) {
-      onVolumeChanged(control, id);
-      return;
-    }
     if (actions[id]) {
       actions[id]();
       return;
@@ -616,11 +645,19 @@
   window.OnAddinLoad = onAddinLoad;
   window.GetImage = onGetImage;
   window.OnGetImage = onGetImage;
+  window.GetPressed = onGetPressed;
+  window.OnGetPressed = onGetPressed;
+  window.GetLabel = onGetLabel;
+  window.OnGetLabel = onGetLabel;
   window.ribbon = {
     OnAddinLoad: onAddinLoad,
     OnAction: onRibbonAction,
     GetImage: onGetImage,
     OnGetImage: onGetImage,
+    GetPressed: onGetPressed,
+    OnGetPressed: onGetPressed,
+    GetLabel: onGetLabel,
+    OnGetLabel: onGetLabel,
     OnSpeakSelection: onSpeakSelection,
     OnSpeakDocument: onSpeakDocument,
     OnSpeakFromCursor: onSpeakFromCursor,
@@ -628,15 +665,14 @@
     OnResumeSpeak: onResumeSpeak,
     OnStopSpeak: onStopSpeak,
     OnRateChanged: onRateChanged,
-    OnVolumeChanged: onVolumeChanged,
     OnRateSelected: onRateSelected,
-    OnVolumeSelected: onVolumeSelected,
     OnCheckStatus: onCheckStatus,
     OnAbout: onAbout
   };
   window.onRateChanged = onRateChanged;
-  window.onVolumeChanged = onVolumeChanged;
   window.onCheckStatus = onCheckStatus;
   window.onAbout = onAbout;
   window.onGetImage = onGetImage;
+  window.onGetPressed = onGetPressed;
+  window.onGetLabel = onGetLabel;
 })();

@@ -87,7 +87,7 @@ python3 packaging/deb/build_deb.py
 最终交付文件：
 
 ```text
-dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
+dist/wps-read-aloud-zhangjingyao_1.0.13_arm64.deb
 ```
 
 ## 安装
@@ -95,7 +95,7 @@ dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
 在银河麒麟 V10 ARM64 目标机执行：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-zhangjingyao_1.0.13_arm64.deb
 ```
 
 安装包会：
@@ -128,6 +128,12 @@ GET /health
 GET /selftest
 GET /audio/probe
 POST /audio/probe
+POST /read/start
+GET /read/status
+POST /read/settings
+POST /read/stop
+POST /read/pause
+POST /read/resume
 POST /play
 POST /synthesize
 POST /speak
@@ -137,7 +143,7 @@ POST /resume
 GET /voices
 ```
 
-加载项默认使用 `POST /play` 由本地服务完成系统侧播放，避免 WPS 内置浏览器自动播放限制；`POST /synthesize` 保留为 WAV 合成接口，`POST /speak` 作为兼容别名保留。
+加载项默认使用 `/read/*` 会话接口由本地服务完成预合成、暂停、继续、停止和系统侧播放，避免 WPS 内置浏览器自动播放限制；`POST /synthesize` 保留为 WAV 合成接口，`POST /speak` 作为兼容别名保留。
 
 ## Git 管理
 

@@ -2,87 +2,53 @@
 
 ## 管理范围
 
-源码仓库只提交加载项源码、服务端源码、打包脚本、配置模板、说明文档和许可证文件。
+源代码仓库提交加载项源码、服务端源码、打包脚本、配置模板、说明文档和许可证文件。
 
-不直接提交普通 Git 的内容：
-
+普通 Git 提交不直接纳入以下大文件：
 - `dist/` 发布安装包和构建出的二进制文件
 - `engines/` 离线语音引擎
 - `voices/` 语音模型
 - `tools/` 本地工具链
 - `build/`、`.gocache*`、`downloads/` 等缓存目录
 
-这些大文件建议放到 GitHub Release 附件、企业制品库或受控内网文件服务器。
+这些大文件应放到 GitHub Release 附件、企业制品库或受控内网文件服务器。
 
 ## 分支策略
 
 - `main`：稳定交付分支，只合入已验证版本。
-- `develop`：日常开发分支。
-- `feature/<功能名>`：单个功能或修复分支。
-- `hotfix/<问题名>`：生产问题紧急修复分支。
+- 临时开发分支仅用于隔离风险，发布前合回 `main`。
+- 当前远端仓库已核查，只有 `main` 分支。
 
 ## 版本号与标签
 
-版本号遵循 `主版本.次版本.修订号`，例如 `1.0.1`。
+版本号遵循 `主版本.次版本.修订号`，例如 `1.0.13`。
 
 发布标签格式：
 
-```bash
-v1.0.1-20260515
+```text
+v1.0.13-20260516
 ```
 
-标签应指向已完成验收的提交。发布 `.deb` 时，需要同时记录 SHA256。
+标签日期使用实际发布日。之前使用 `20260515` 的标签保留历史含义；从 `1.0.13` 起按 `20260516` 发布。
 
-## 推荐提交流程
+## Codex 自动发布流程
 
-```bash
-git status
-git add <变更文件>
-git commit -m "简要说明本次变更"
-git tag v1.0.1-20260515
-```
+后续每次修改由 Codex 自动执行以下流程，用户不需要手动操作：
 
-## GitHub 同步流程
+1. 审查变更范围。
+2. 更新版本号、发布日期和中文说明文档。
+3. 同步加载项文件到服务端内嵌目录。
+4. 执行代码检查、XML 检查、Go 编译检查和打包检查。
+5. 构建 `wps-read-aloud-zhangjingyao_<版本>_arm64.deb`。
+6. 计算并记录 SHA256。
+7. 提交到 Git。
+8. 推送 `main`。
+9. 创建发布标签。
+10. 在 GitHub 创建同名 Release。
+11. 在 Release 说明里写入版本变更、已知限制和 SHA256，并上传 `.deb` 安装包附件。
 
-首次同步到 GitHub：
-
-```bash
-git remote add origin git@github.com:<owner>/<repo>.git
-git push -u origin main
-git push origin v1.0.1-20260515
-```
-
-如果使用 HTTPS：
-
-```bash
-git remote add origin https://github.com/<owner>/<repo>.git
-git push -u origin main
-git push origin v1.0.1-20260515
-```
-
-## 发布附件
-
-最终 `.deb` 不进普通源码提交，建议上传到 GitHub Release，并在发布说明中填写：
-
-- 安装包名称
-- 版本号
-- 架构
-- SHA256
-- 主要变更
-- 已知限制
-
-当前交付包名示例：
+当前交付包命名示例：
 
 ```text
-wps-read-aloud-zhangjingyao_1.0.12_arm64.deb
-```
-
-## Codex 自动执行
-
-本项目后续由 Codex 自动执行本地 Git 与 GitHub 版本管理，用户不需要手动运行提交、推送、打标签或构建命令。
-
-详细规则见：
-
-```text
-docs/CODEX_AUTOMATION.md
+wps-read-aloud-zhangjingyao_1.0.13_arm64.deb
 ```
