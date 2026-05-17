@@ -2,9 +2,9 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-xc
-版本：1.0.17
+版本：1.0.18
 开发者：Zhang Jingyao
-发布时间：20260516
+发布时间：20260517
 
 本软件包内置第三方开源组件，以便在纯净 ARM64 麒麟操作系统上离线运行。第三方组件安装在 `/opt/wps-read-aloud`，许可证和声明文件安装在 `/usr/share/doc/wps-read-aloud-xc`。
 

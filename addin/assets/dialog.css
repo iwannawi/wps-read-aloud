@@ -166,31 +166,55 @@ button:hover {
 }
 
 body.compact {
-  min-width: 360px;
-  min-height: 110px;
+  width: 100vw;
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: #f7f9fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 body.compact .dialog {
+  width: 100vw;
   height: 100vh;
   min-height: 0;
-  padding: 10px 18px;
+  padding: 10px 14px;
   gap: 6px;
+  align-items: center;
   justify-content: center;
+  text-align: center;
   overflow: hidden;
 }
 
+body.compact .dialog-header {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 body.compact h1 {
+  width: 100%;
+  margin: 0;
   font-size: 16px;
   line-height: 1.25;
+  text-align: center;
 }
 
 body.compact #dialogMessage {
-  margin-top: 2px;
+  width: 100%;
+  margin: 2px auto 0;
   font-size: 13px;
   line-height: 1.35;
   max-width: 420px;
+  text-align: center;
 }
 
 body.compact .dialog-section {

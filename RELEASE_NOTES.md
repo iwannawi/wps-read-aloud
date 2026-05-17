@@ -3,16 +3,18 @@
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-xc
 Debian 包名：wps-read-aloud-xc
-版本：1.0.17
+版本：1.0.18
 架构：arm64
 适用操作系统：ARM64 麒麟操作系统
 适用办公软件：WPS Office 2023 for Linux / WPS Office 2019 for Linux
 开发者：Zhang Jingyao
-发布时间：20260516
+发布时间：20260517
 
 ## 本次变更
 
-- 软件包文件名统一为小写 `wps-read-aloud-xc_1.0.17_arm64.deb`，与 Debian 内部包名 `wps-read-aloud-xc` 保持一致。
+- 文档朗读选项卡的 6 个顶层控件继续使用 `size="large"`，并将图标从动态 `getImage` 回调改为 WPS 示例推荐的静态 `image="assets/icons/*.png"` 声明，避免 WPS Linux 将回调图像按小图标尺寸渲染。
+- 朗读启动等待弹窗改为双层居中布局，去掉 compact 模式下的最小宽度限制，修复提示文字在小窗内偏右的问题。
+- 软件包文件名统一为小写 `wps-read-aloud-xc_1.0.18_arm64.deb`，与 Debian 内部包名 `wps-read-aloud-xc` 保持一致。
 - 朗读启动等待弹窗改为更小的 compact 内容布局，降低标题、正文和内边距尺寸，并禁用 compact 弹窗内部滚动，避免小窗出现滚动条。
 - 清理发布目录中的旧安装包、临时推送脚本和可能包含敏感认证输出的日志，避免企业交付目录混入无关文件。
 - 开始朗读时的小提示窗改为紧凑布局，文案为“请耐心等待，朗读模块正在启动... ...”，不再依赖固定倒计时自动关闭；进入实际播放后由加载项主动关闭。
@@ -27,7 +29,7 @@ Debian 包名：wps-read-aloud-xc
 ## 安装
 
 ```bash
-sudo dpkg -i wps-read-aloud-xc_1.0.17_arm64.deb
+sudo dpkg -i wps-read-aloud-xc_1.0.18_arm64.deb
 ```
 
 如果 WPS 已经打开，请安装完成后重启 WPS。

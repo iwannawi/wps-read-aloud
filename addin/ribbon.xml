@@ -4,25 +4,25 @@
     <tabs>
       <tab id="wpsReadAloudTab" label="文档朗读">
         <group id="readControlGroup" label="朗读控制">
-          <button id="startSpeak" label="开始朗读" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="开始朗读" supertip="按当前朗读模式从光标位置或文档起点开始朗读。"/>
-          <button id="stopSpeak" label="停止朗读" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="停止朗读" supertip="停止当前朗读任务。"/>
+          <button id="startSpeak" label="开始朗读" size="large" image="assets/icons/start.png" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="开始朗读" supertip="按当前朗读模式从光标位置或文档起点开始朗读。"/>
+          <button id="stopSpeak" label="停止朗读" size="large" image="assets/icons/stop.png" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="停止朗读" supertip="停止当前朗读任务。"/>
         </group>
         <group id="readModeGroup" label="朗读范围">
-          <menu id="modeMenu" label="朗读方式" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" screentip="朗读方式" supertip="选择连页朗读或当页朗读，默认连页朗读。">
+          <menu id="modeMenu" label="朗读方式" size="large" image="assets/icons/mode.png" getEnabled="ribbon.GetEnabled" screentip="朗读方式" supertip="选择连页朗读或当页朗读，默认连页朗读。">
             <button id="modeContinuousItem" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
             <button id="modePageItem" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
           </menu>
         </group>
         <group id="settingGroup" label="朗读设置">
-          <menu id="rateMenu" getLabel="ribbon.GetLabel" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" screentip="朗读语速" supertip="选择朗读语速，默认 1x。">
+          <menu id="rateMenu" getLabel="ribbon.GetLabel" size="large" image="assets/icons/rate.png" getEnabled="ribbon.GetEnabled" screentip="朗读语速" supertip="选择朗读语速，默认 1x。">
             <button id="rate075" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
             <button id="rate10" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
             <button id="rate15" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
           </menu>
         </group>
         <group id="serviceGroup" label="服务">
-          <button id="checkStatus" label="状态检查" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="状态检查" supertip="检查本地朗读服务、语音引擎和播放器探测结果。"/>
-          <button id="aboutAddin" label="关于朗读" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="关于朗读" supertip="查看加载项名称、版本、开发者和说明文档链接。"/>
+          <button id="checkStatus" label="状态检查" size="large" image="assets/icons/status.png" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="状态检查" supertip="检查本地朗读服务、语音引擎和播放器探测结果。"/>
+          <button id="aboutAddin" label="关于朗读" size="large" image="assets/icons/about.png" getEnabled="ribbon.GetEnabled" onAction="ribbon.OnAction" screentip="关于朗读" supertip="查看加载项名称、版本、开发者和说明文档链接。"/>
         </group>
       </tab>
     </tabs>
