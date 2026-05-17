@@ -702,8 +702,8 @@
         { label: "适用操作系统", value: "ARM64 麒麟操作系统" },
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
         { label: "开发者", value: "Zhang Jingyao" },
-        { label: "发布时间", value: "20260517" },
-        { label: "版本", value: "1.0.22" },
+        { label: "发布时间", value: "20260518" },
+        { label: "版本", value: "1.0.23" },
         { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],

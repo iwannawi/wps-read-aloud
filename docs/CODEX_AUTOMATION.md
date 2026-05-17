@@ -79,7 +79,7 @@ Codex 不会把 Personal Access Token 写入：
 - 日志
 - GitHub Actions 工作流明文
 
-本项目不使用 SSH 连接 GitHub，统一使用 HTTPS。推送和 Release 发布脚本优先读取 GitHub CLI 的 `gh auth token`，其次读取本机 Git Credential Manager；只有两者都不可用时才提示输入 token。任何情况下都不得把 token 写入项目文件或日志。
+本项目不使用 SSH 连接 GitHub，统一使用 HTTPS。推送和 Release 发布脚本优先读取 GitHub CLI 的 `gh auth token`，其次读取本机 Git Credential Manager；脚本会校验 token 有效性和当前仓库的 HTTPS Git 访问能力，只有两者都不可用或不能访问仓库时才提示输入 token。安全输入框输入的新 token 可写回 Git Credential Manager，但任何情况下都不得把 token 写入项目文件或日志。
 
 ## 需要暂停确认的情况
 
