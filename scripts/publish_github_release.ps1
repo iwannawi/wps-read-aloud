@@ -33,12 +33,19 @@ function ConvertFrom-SecureStringPlain($SecureString) {
 }
 
 function Get-GitHubTokenFromGcm {
-  $Gcm = "C:\Users\zhangjingyao\scoop\apps\git\2.53.0.2\mingw64\bin\git-credential-manager.exe"
-  if (!(Test-Path $Gcm)) {
-    return ""
+  $Gcm = Get-Command git-credential-manager.exe -ErrorAction SilentlyContinue
+  if (!$Gcm) {
+    $KnownGcm = "C:\Users\zhangjingyao\scoop\apps\git\2.53.0.2\mingw64\bin\git-credential-manager.exe"
+    if (Test-Path $KnownGcm) {
+      $GcmPath = $KnownGcm
+    } else {
+      return ""
+    }
+  } else {
+    $GcmPath = $Gcm.Source
   }
   $InputText = "protocol=https`nhost=github.com`npath=$Owner/$Repo.git`n`n"
-  $Cred = $InputText | & $Gcm get
+  $Cred = $InputText | & $GcmPath get
   if ($LASTEXITCODE -ne 0 -or !$Cred) {
     return ""
   }
@@ -50,13 +57,32 @@ function Get-GitHubTokenFromGcm {
   return ""
 }
 
+function Get-GitHubTokenFromGh {
+  $Gh = Get-Command gh.exe -ErrorAction SilentlyContinue
+  if (!$Gh) {
+    return ""
+  }
+  $Token = & $Gh.Source auth token 2>$null
+  if ($LASTEXITCODE -ne 0 -or !$Token) {
+    return ""
+  }
+  return (($Token | Out-String).Trim())
+}
+
 function Get-GitHubToken {
   if (!$PromptToken) {
+    $Token = Get-GitHubTokenFromGh
+    if (![string]::IsNullOrWhiteSpace($Token)) {
+      Write-Log "Using GitHub token from gh auth."
+      return $Token
+    }
     $Token = Get-GitHubTokenFromGcm
     if (![string]::IsNullOrWhiteSpace($Token)) {
+      Write-Log "Using GitHub token from Git Credential Manager."
       return $Token
     }
   }
+  Write-Log "No stored GitHub credential found; prompting for token."
   $Secure = Read-Host "Enter GitHub token" -AsSecureString
   return ConvertFrom-SecureStringPlain $Secure
 }
