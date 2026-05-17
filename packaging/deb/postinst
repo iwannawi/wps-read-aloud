@@ -14,6 +14,13 @@ touch /opt/wps-read-aloud/.wps-read-aloud-xc
 
 /usr/bin/wps-read-aloud-register --all-users || true
 
+expected_version="$(
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /opt/wps-read-aloud/version.json 2>/dev/null | head -n 1
+)"
+if [[ -z "${expected_version}" ]]; then
+  expected_version="unknown"
+fi
+
 health_ok=0
 for i in 1 2 3 4 5; do
   health="$(
@@ -22,7 +29,7 @@ for i in 1 2 3 4 5; do
     cat <&3
   )" 2>/dev/null || health=""
   if echo "${health}" | grep -q '"ok":true' && \
-     echo "${health}" | grep -q '"version":"1.0.18"' && \
+     echo "${health}" | grep -q "\"version\":\"${expected_version}\"" && \
      ! echo "${health}" | grep -q '"engine":"none"'; then
     echo "wps-read-aloud service health check passed: ${health}"
     health_ok=1

@@ -127,6 +127,18 @@
     return (control && (control.Id || control.id || control.ID)) || "";
   }
 
+  function onGetImage(control) {
+    var icons = {
+      startSpeak: "assets/icons/start.png",
+      stopSpeak: "assets/icons/stop.png",
+      modeMenu: "assets/icons/mode.png",
+      rateMenu: "assets/icons/rate.png",
+      checkStatus: "assets/icons/status.png",
+      aboutAddin: "assets/icons/about.png"
+    };
+    return icons[controlId(control)] || "assets/icons/start.png";
+  }
+
   function userMessage(error) {
     var raw = error && error.message ? error.message : String(error || "");
     try {
@@ -673,7 +685,7 @@
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "发布时间", value: "20260517" },
-        { label: "版本", value: "1.0.18" },
+        { label: "版本", value: "1.0.19" },
         { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],
@@ -740,6 +752,8 @@
   window.OnAction = onRibbonAction;
   window.onAddinLoad = onAddinLoad;
   window.OnAddinLoad = onAddinLoad;
+  window.GetImage = onGetImage;
+  window.OnGetImage = onGetImage;
   window.GetPressed = onGetPressed;
   window.OnGetPressed = onGetPressed;
   window.GetEnabled = onGetEnabled;
@@ -749,6 +763,8 @@
   window.ribbon = {
     OnAddinLoad: onAddinLoad,
     OnAction: onRibbonAction,
+    GetImage: onGetImage,
+    OnGetImage: onGetImage,
     GetPressed: onGetPressed,
     OnGetPressed: onGetPressed,
     GetEnabled: onGetEnabled,
@@ -762,6 +778,7 @@
   };
   window.onCheckStatus = onCheckStatus;
   window.onAbout = onAbout;
+  window.onGetImage = onGetImage;
   window.onGetPressed = onGetPressed;
   window.onGetEnabled = onGetEnabled;
   window.onGetLabel = onGetLabel;

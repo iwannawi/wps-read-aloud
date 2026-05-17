@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import gzip
 import io
+import json
 import os
 import shutil
 import tarfile
@@ -10,7 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PKG_NAME = "wps-read-aloud-xc"
 ARTIFACT_NAME = "wps-read-aloud-xc"
-VERSION = os.environ.get("VERSION", "1.0.18")
+VERSION = os.environ.get("VERSION", "1.0.19")
+RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260517")
 ARCH = os.environ.get("ARCH", "arm64")
 BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{ARCH}"
 DATA = BUILD / "data"
@@ -22,7 +24,6 @@ EMBEDDED_WEB = ROOT / "daemon" / "cmd" / "wps-tts-daemon" / "web"
 
 
 REQUIRED = [
-    "dist/wps-tts-daemon",
     "engines/sherpa-onnx/sherpa-onnx-offline-tts",
     "engines/sherpa-onnx/lib",
     "voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
@@ -75,6 +76,67 @@ def require(path: str) -> None:
     full = ROOT / path
     if not full.exists():
         raise SystemExit(f"missing required file: {path}")
+
+
+def extract_ar_member(deb_path: Path, member_name: str) -> bytes:
+    data = deb_path.read_bytes()
+    if not data.startswith(b"!<arch>\n"):
+        raise ValueError(f"not a deb/ar file: {deb_path}")
+    pos = 8
+    while pos + 60 <= len(data):
+        header = data[pos : pos + 60]
+        name = header[:16].decode("ascii").strip()
+        size = int(header[48:58].decode("ascii").strip())
+        pos += 60
+        payload = data[pos : pos + size]
+        pos += size + (size % 2)
+        if name == member_name:
+            return payload
+    raise KeyError(member_name)
+
+
+def extract_daemon_from_deb(deb_path: Path, target: Path) -> bool:
+    try:
+        data_tar = extract_ar_member(deb_path, "data.tar.gz")
+        with tarfile.open(fileobj=io.BytesIO(data_tar), mode="r:gz") as tar:
+            member = tar.getmember("opt/wps-read-aloud/daemon/wps-tts-daemon")
+            source = tar.extractfile(member)
+            if source is None:
+                return False
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read())
+            target.chmod(0o755)
+            return True
+    except Exception:
+        return False
+
+
+def resolve_daemon_binary() -> Path:
+    daemon = OUT / "wps-tts-daemon"
+    if daemon.is_file():
+        return daemon
+    candidates = sorted(
+        OUT.glob(f"{ARTIFACT_NAME}_*_{ARCH}.deb"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for candidate in candidates:
+        if extract_daemon_from_deb(candidate, daemon):
+            return daemon
+    raise SystemExit(
+        "missing required file: dist/wps-tts-daemon; "
+        "no previous package was available to reuse the daemon binary"
+    )
+
+
+def write_version_json(target: Path) -> None:
+    info = {
+        "name": "WPS 文档朗读助手",
+        "package": PKG_NAME,
+        "version": VERSION,
+        "release_date": RELEASE_DATE,
+    }
+    target.write_text(json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def copytree_contents(src: Path, dst: Path) -> None:
@@ -205,7 +267,8 @@ def main() -> None:
         shutil.copy2(ROOT / "packaging" / "deb" / script, DEBIAN / script)
 
     (DATA / "opt/wps-read-aloud/daemon").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "dist" / "wps-tts-daemon", DATA / "opt/wps-read-aloud/daemon/wps-tts-daemon")
+    shutil.copy2(resolve_daemon_binary(), DATA / "opt/wps-read-aloud/daemon/wps-tts-daemon")
+    write_version_json(DATA / "opt/wps-read-aloud/version.json")
     copytree_contents(ROOT / "addin", DATA / "opt/wps-read-aloud/addin")
     (DATA / "opt/wps-read-aloud/engines").mkdir(parents=True, exist_ok=True)
     copytree_contents(ROOT / "engines" / "sherpa-onnx", DATA / "opt/wps-read-aloud/engines/sherpa-onnx")

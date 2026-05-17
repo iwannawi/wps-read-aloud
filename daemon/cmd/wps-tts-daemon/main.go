@@ -32,10 +32,16 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const AppVersion = "1.0.18"
-
+const appVersionPath = "/opt/wps-read-aloud/version.json"
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
 const prefetchTextTarget = 100
+
+type AppInfo struct {
+	Name        string `json:"name"`
+	Package     string `json:"package"`
+	Version     string `json:"version"`
+	ReleaseDate string `json:"release_date"`
+}
 
 type Config struct {
 	Listen string
@@ -217,7 +223,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":           engine != "none",
-		"version":      AppVersion,
+		"version":      appVersion(),
 		"engine":       engine,
 		"audio_player": playerName,
 		"audio_probe":  probe,
@@ -1007,7 +1013,7 @@ func prepareAudioFileForPlayer(wavPath string, player audioPlayer) error {
 
 func (s *Server) probeAudioPlayers(parent context.Context) audioProbeResult {
 	result := audioProbeResult{
-		Version:  AppVersion,
+		Version:  appVersion(),
 		ProbedAt: time.Now().Format(time.RFC3339),
 	}
 	wavPath, err := createProbeWav()
@@ -1113,10 +1119,30 @@ func loadAudioProbe() audioProbeResult {
 	if err := json.Unmarshal(data, &result); err != nil {
 		return audioProbeResult{}
 	}
-	if result.Version != AppVersion {
+	if result.Version != appVersion() {
 		return audioProbeResult{}
 	}
 	return result
+}
+
+func appVersion() string {
+	info := loadAppInfo()
+	if strings.TrimSpace(info.Version) == "" {
+		return "dev"
+	}
+	return info.Version
+}
+
+func loadAppInfo() AppInfo {
+	data, err := os.ReadFile(appVersionPath)
+	if err != nil {
+		return AppInfo{}
+	}
+	var info AppInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return AppInfo{}
+	}
+	return info
 }
 
 func saveAudioProbe(result audioProbeResult) error {

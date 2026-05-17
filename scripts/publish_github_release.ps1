@@ -1,19 +1,64 @@
 param(
   [string]$Owner = "iwannawi",
   [string]$Repo = "wps-read-aloud",
-  [string]$Tag = "v1.0.18-20260517"
+  [string]$Version = "1.0.19",
+  [string]$ReleaseDate = "20260517",
+  [string]$Tag = "",
+  [switch]$PromptToken
 )
 
 $ErrorActionPreference = "Stop"
 
+if ([string]::IsNullOrWhiteSpace($Tag)) {
+  $Tag = "v$Version-$ReleaseDate"
+}
+
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$Deb = Join-Path $Root "dist\wps-read-aloud-xc_1.0.18_arm64.deb"
-$ShaFile = Join-Path $Root "dist\wps-read-aloud-xc_1.0.18_arm64.deb.sha256"
+$Deb = Join-Path $Root "dist\wps-read-aloud-xc_${Version}_arm64.deb"
+$ShaFile = Join-Path $Root "dist\wps-read-aloud-xc_${Version}_arm64.deb.sha256"
 $ReleaseNotes = Join-Path $Root "RELEASE_NOTES.md"
-$Log = Join-Path $Root "dist\github-release-v1.0.18-20260517.log"
+$Log = Join-Path $Root "dist\github-release-${Tag}.log"
 
 function Write-Log($Text) {
   $Text | Tee-Object -FilePath $Log -Append
+}
+
+function ConvertFrom-SecureStringPlain($SecureString) {
+  $Ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+  try {
+    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Ptr)
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Ptr)
+  }
+}
+
+function Get-GitHubTokenFromGcm {
+  $Gcm = "C:\Users\zhangjingyao\scoop\apps\git\2.53.0.2\mingw64\bin\git-credential-manager.exe"
+  if (!(Test-Path $Gcm)) {
+    return ""
+  }
+  $InputText = "protocol=https`nhost=github.com`npath=$Owner/$Repo.git`n`n"
+  $Cred = $InputText | & $Gcm get
+  if ($LASTEXITCODE -ne 0 -or !$Cred) {
+    return ""
+  }
+  foreach ($Line in $Cred) {
+    if ($Line.StartsWith("password=")) {
+      return $Line.Substring("password=".Length)
+    }
+  }
+  return ""
+}
+
+function Get-GitHubToken {
+  if (!$PromptToken) {
+    $Token = Get-GitHubTokenFromGcm
+    if (![string]::IsNullOrWhiteSpace($Token)) {
+      return $Token
+    }
+  }
+  $Secure = Read-Host "Enter GitHub token" -AsSecureString
+  return ConvertFrom-SecureStringPlain $Secure
 }
 
 function Invoke-CurlJson($Arguments) {
@@ -27,29 +72,18 @@ function Invoke-CurlJson($Arguments) {
   return (($Output | Out-String) | ConvertFrom-Json)
 }
 
-if (!(Test-Path $Deb)) {
-  throw "Missing deb package: $Deb"
+foreach ($Path in @($Deb, $ShaFile, $ReleaseNotes)) {
+  if (!(Test-Path $Path)) {
+    throw "Missing required file: $Path"
+  }
 }
-if (!(Test-Path $ShaFile)) {
-  throw "Missing sha256 file: $ShaFile"
-}
-if (!(Test-Path $ReleaseNotes)) {
-  throw "Missing release notes: $ReleaseNotes"
-}
-
-$Secure = Read-Host "Enter GitHub token" -AsSecureString
-$Ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)
-try {
-  $Token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Ptr)
-} finally {
-  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Ptr)
-}
-if ([string]::IsNullOrWhiteSpace($Token)) {
-  throw "Token is empty."
-}
-
 if (Test-Path $Log) {
   Remove-Item -Force -LiteralPath $Log
+}
+
+$Token = Get-GitHubToken
+if ([string]::IsNullOrWhiteSpace($Token)) {
+  throw "GitHub token is empty."
 }
 
 $Body = [System.IO.File]::ReadAllText($ReleaseNotes, [System.Text.Encoding]::UTF8)
@@ -89,9 +123,7 @@ try {
   $Release = Invoke-CurlJson $CreateArgs
 } catch {
   Write-Log "Create failed; trying to load existing release by tag."
-  $GetArgs = @(
-    "-sS", "--fail-with-body", "-L"
-  ) + $BaseHeaders + @(
+  $GetArgs = @("-sS", "--fail-with-body", "-L") + $BaseHeaders + @(
     "https://api.github.com/repos/$Owner/$Repo/releases/tags/$Tag"
   )
   $Release = Invoke-CurlJson $GetArgs
@@ -101,9 +133,7 @@ $UploadBase = [regex]::Replace([string]$Release.upload_url, "\{.*\}$", "")
 Write-Log ("Release URL: " + $Release.html_url)
 Write-Log ("Upload API: " + $UploadBase)
 
-$ExistingAssetsArgs = @(
-  "-sS", "--fail-with-body", "-L"
-) + $BaseHeaders + @(
+$ExistingAssetsArgs = @("-sS", "--fail-with-body", "-L") + $BaseHeaders + @(
   "https://api.github.com/repos/$Owner/$Repo/releases/$($Release.id)/assets"
 )
 $ExistingAssets = @()
@@ -122,10 +152,7 @@ foreach ($Asset in @($Deb, $ShaFile)) {
   foreach ($Existing in $ExistingAssets) {
     if ($Existing.name -eq $Name) {
       Write-Log "Deleting existing asset: $Name"
-      $DeleteArgs = @(
-        "-sS", "--fail-with-body", "-L",
-        "-X", "DELETE"
-      ) + $BaseHeaders + @(
+      $DeleteArgs = @("-sS", "--fail-with-body", "-L", "-X", "DELETE") + $BaseHeaders + @(
         "https://api.github.com/repos/$Owner/$Repo/releases/assets/$($Existing.id)"
       )
       & curl.exe @DeleteArgs | Out-Null
@@ -151,8 +178,7 @@ foreach ($Asset in @($Deb, $ShaFile)) {
   }
 }
 
+$Token = $null
 Write-Log "GitHub Release published successfully."
-Write-Host ""
 Write-Host ("Published: " + $Release.html_url)
 Write-Host ("Log file: " + $Log)
-Read-Host "Press Enter to close"

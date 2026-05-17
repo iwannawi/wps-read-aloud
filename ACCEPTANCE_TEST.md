@@ -2,13 +2,13 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-xc
-版本：1.0.18
+版本：1.0.19
 目标环境：ARM64 麒麟操作系统 + WPS Office 2023 for Linux / WPS Office 2019 for Linux
 
 ## 安装测试
 
 ```bash
-sudo dpkg -i wps-read-aloud-xc_1.0.18_arm64.deb
+sudo dpkg -i wps-read-aloud-xc_1.0.19_arm64.deb
 ```
 
 预期结果：
@@ -53,13 +53,13 @@ sudo dpkg -i wps-read-aloud-xc_1.0.18_arm64.deb
 示例文本：
 
 ```text
-这是 WPS 2026 read aloud test，版本是 v1.0.18。
+这是 WPS 2026 read aloud test，版本是 v1.0.19。
 ```
 
 预期结果：
 - 中文正常朗读。
 - 英文和数字不被跳过。
-- 英文和数字按单字符中文读法朗读，例如 `WPS`、`2026`、`v1.0.18` 会被逐字符读出。
+- 英文和数字按单字符中文读法朗读，例如 `WPS`、`2026`、`v1.0.19` 会被逐字符读出。
 
 ## 弹窗测试
 
