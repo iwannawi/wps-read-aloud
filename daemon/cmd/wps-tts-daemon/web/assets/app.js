@@ -16,6 +16,8 @@
   var isReading = false;
   var lastActionAt = 0;
   var lastSelectedIndex = -1;
+  var startupPopup = null;
+  var startupDialogId = "";
 
   var RATE_OPTIONS = [
     { id: "rate075", value: 0.75, label: "0.75x" },
@@ -66,11 +68,13 @@
   }
 
   function showStartupDialog() {
+    startupDialogId = "startup-" + Date.now() + "-" + Math.floor(Math.random() * 1000000);
     var options = {
       title: "朗读正在启动",
       variant: "info",
       compact: true,
       startup: true,
+      startupId: startupDialogId,
       width: 500,
       height: 150,
       message: "朗读服务正在启动，请耐心等待..."
@@ -434,7 +438,7 @@
     setReadingState(true);
     lastSelectedIndex = -1;
     status("朗读服务正在启动，请耐心等待...");
-    var startupPopup = showStartupDialog();
+    startupPopup = showStartupDialog();
 
     try {
       await request("/read/start", {
@@ -454,7 +458,7 @@
         notify(userMessage(error));
       }
     } finally {
-      closePopup(startupPopup);
+      closeStartupDialog();
       if (token === playbackToken) {
         setReadingState(false);
       }
@@ -467,6 +471,17 @@
         popup.close();
       }
     } catch (_) {}
+  }
+
+  function closeStartupDialog() {
+    if (startupDialogId) {
+      try {
+        localStorage.setItem("wpsReadAloudCloseStartup", startupDialogId);
+      } catch (_) {}
+    }
+    closePopup(startupPopup);
+    startupPopup = null;
+    startupDialogId = "";
   }
 
   async function pollReadStatus(token, segments, startupPopup) {
@@ -509,6 +524,7 @@
       return;
     }
     playbackToken += 1;
+    closeStartupDialog();
     setReadingState(false);
     lastSelectedIndex = -1;
     postControl("/read/stop");
@@ -687,7 +703,7 @@
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "发布时间", value: "20260517" },
-        { label: "版本", value: "1.0.21" },
+        { label: "版本", value: "1.0.22" },
         { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],

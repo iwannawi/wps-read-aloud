@@ -87,18 +87,31 @@
       window.close();
     };
     if (payload.startup) {
-      closeWhenPlaybackStarts();
+      closeWhenPlaybackStarts(payload.startupId || "");
     }
   }
 
-  function closeWhenPlaybackStarts() {
+  function closeWhenPlaybackStarts(startupId) {
+    var openedAt = Date.now();
     setInterval(function () {
+      try {
+        if (startupId && localStorage.getItem("wpsReadAloudCloseStartup") === startupId) {
+          window.close();
+          return;
+        }
+      } catch (_) {}
       fetch("/read/status", { cache: "no-store" })
         .then(function (response) {
           return response.ok ? response.json() : null;
         })
         .then(function (data) {
-          if (data && data.state === "playing") {
+          if (!data) {
+            return;
+          }
+          if (data.state === "playing" || data.state === "done" || data.state === "stopped" || data.state === "error") {
+            window.close();
+          }
+          if (data.state === "idle" && Date.now() - openedAt > 1000) {
             window.close();
           }
         })

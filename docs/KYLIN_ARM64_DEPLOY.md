@@ -12,7 +12,7 @@
 企业交付优先使用 `.deb`：
 
 ```bash
-sudo dpkg -i dist/wps-read-aloud-xc_1.0.21_arm64.deb
+sudo dpkg -i dist/wps-read-aloud-xc_1.0.22_arm64.deb
 ```
 
 安装后会自动：

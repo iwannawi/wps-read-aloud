@@ -34,6 +34,7 @@ var webFS embed.FS
 
 const appVersionPath = "/opt/wps-read-aloud/version.json"
 const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
+const addinDiskDir = "/opt/wps-read-aloud/addin"
 const prefetchTextTarget = 100
 const pauseBaseRate = 1.2
 const standardPauseMsAtBaseRate = 400
@@ -298,9 +299,29 @@ func (s *Server) web(w http.ResponseWriter, r *http.Request) {
 			path = "/index.html"
 		}
 	}
+	if diskPath := diskIconPath(path); diskPath != "" {
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, diskPath)
+		return
+	}
 	fileRequest := r.Clone(r.Context())
 	fileRequest.URL.Path = path
 	http.FileServer(http.FS(sub)).ServeHTTP(w, fileRequest)
+}
+
+func diskIconPath(requestPath string) string {
+	if !strings.HasPrefix(requestPath, "/assets/icons/") || !strings.HasSuffix(strings.ToLower(requestPath), ".png") {
+		return ""
+	}
+	name := filepath.Base(requestPath)
+	switch name {
+	case "start.png", "stop.png", "mode.png", "rate.png", "status.png", "about.png":
+		path := filepath.Join(addinDiskDir, "assets", "icons", name)
+		if fileExists(path) {
+			return path
+		}
+	}
+	return ""
 }
 
 func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
