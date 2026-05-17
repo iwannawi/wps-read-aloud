@@ -3,7 +3,7 @@
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-xc
 Debian 包名：wps-read-aloud-xc
-版本：1.0.19
+版本：1.0.20
 架构：arm64
 适用操作系统：ARM64 麒麟操作系统
 适用办公软件：WPS Office 2023 for Linux / WPS Office 2019 for Linux
@@ -12,17 +12,20 @@ Debian 包名：wps-read-aloud-xc
 
 ## 本次变更
 
+- 朗读语速调整为 4 个选项：`0.75x`、`1x`、`1.2x`、`1.5x`，默认语速改为 `1.2x`。
+- 朗读启动等待弹窗文案改为“朗读服务正在启动，请耐心等待...”，并适当增大提示字号。
+- 文本预处理保留单句一次语音合成，不会因逗号、冒号等语义标点拆成多个 wav；语义标点会保留文本级停顿提示，双引号、单引号、书名号、括号等成对符号不额外增加停顿。
 - 服务版本号从 Go 编译常量解耦，改为运行时读取 `/opt/wps-read-aloud/version.json`；以后仅修改前端、图标、文档或发布信息时，可以复用现有 daemon 二进制重新打包，不必重新编译 Go 服务。
 - 打包脚本会自动写入 `version.json`，并在 `dist/wps-tts-daemon` 不存在时从最近一个已生成的 `.deb` 中复用 daemon 二进制，减少前端小改版的构建步骤。
 - GitHub 推送和 Release 发布脚本改为长期复用脚本，默认从本机 Git Credential Manager 读取凭据，不再每次生成临时脚本；日志不会输出 token 或 Basic 认证头。
 - 文档朗读选项卡的 6 个顶层控件继续使用 `size="large"`，并恢复 WPS JS 加载项更稳定的 `getImage="ribbon.GetImage"` 图标回调方式，避免静态 `image="..."` 在 WPS Linux 中不显示。
 - 选项卡图标替换为 64x64 PNG RGBA 黑色加粗清晰版图标，减少 WPS Ribbon 缩放后的视觉损失。
 - 朗读启动等待弹窗改为双层居中布局，去掉 compact 模式下的最小宽度限制，修复提示文字在小窗内偏右的问题。
-- 朗读启动等待弹窗隐藏标题行，只保留“请耐心等待，朗读模块正在启动... ...”，避免重复表达。
-- 软件包文件名统一为小写 `wps-read-aloud-xc_1.0.19_arm64.deb`，与 Debian 内部包名 `wps-read-aloud-xc` 保持一致。
+- 朗读启动等待弹窗隐藏标题行，只保留正文提示，避免重复表达。
+- 软件包文件名统一为小写 `wps-read-aloud-xc_1.0.20_arm64.deb`，与 Debian 内部包名 `wps-read-aloud-xc` 保持一致。
 - 朗读启动等待弹窗改为更小的 compact 内容布局，降低标题、正文和内边距尺寸，并禁用 compact 弹窗内部滚动，避免小窗出现滚动条。
 - 清理发布目录中的旧安装包、临时推送脚本和可能包含敏感认证输出的日志，避免企业交付目录混入无关文件。
-- 开始朗读时的小提示窗改为紧凑布局，文案为“请耐心等待，朗读模块正在启动... ...”，不再依赖固定倒计时自动关闭；进入实际播放后由加载项主动关闭。
+- 开始朗读时的小提示窗改为紧凑布局，不再依赖固定倒计时自动关闭；进入实际播放后由加载项主动关闭。
 - 朗读进行中禁用开始朗读、朗读方式、朗读语速、状态检查和关于朗读，停止朗读保持可用，避免连续点击造成状态不一致。
 - 软件显示名称统一为“WPS 文档朗读助手”，选项卡名称仍保持“文档朗读”。
 - 安装包增加 `Conflicts/Replaces: wps-read-aloud-zhangjingyao`，支持从旧包名升级，减少 dpkg 文件归属冲突。
@@ -33,7 +36,7 @@ Debian 包名：wps-read-aloud-xc
 ## 安装
 
 ```bash
-sudo dpkg -i wps-read-aloud-xc_1.0.19_arm64.deb
+sudo dpkg -i wps-read-aloud-xc_1.0.20_arm64.deb
 ```
 
 如果 WPS 已经打开，请安装完成后重启 WPS。

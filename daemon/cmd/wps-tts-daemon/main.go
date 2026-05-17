@@ -617,7 +617,7 @@ func (s *Server) stopLocked() {
 func (rs *readSession) run() {
 	defer rs.cleanup()
 	warmup := rs.prefetchCount(0)
-	rs.setState("preparing", "请耐心等待，朗读模块正在启动", -1)
+	rs.setState("preparing", "朗读服务正在启动，请耐心等待", -1)
 	for i := 0; i < warmup; i++ {
 		entry := rs.ensureAudio(i)
 		if err := rs.waitEntry(entry); err != nil {
@@ -1175,7 +1175,51 @@ func preprocessFanchenText(text string) string {
 		}
 		return " " + strings.Join(parts, " ") + " "
 	})
-	return strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	return normalizeTtsPunctuationSpacing(text)
+}
+
+func normalizeTtsPunctuationSpacing(text string) string {
+	var out []rune
+	for _, r := range text {
+		switch {
+		case isSemanticPausePunctuation(r):
+			trimTrailingSpaces(&out)
+			out = append(out, r, ' ')
+		case isPairedBoundaryPunctuation(r):
+			out = append(out, r)
+		case unicode.IsSpace(r):
+			if len(out) > 0 && out[len(out)-1] != ' ' {
+				out = append(out, ' ')
+			}
+		default:
+			out = append(out, r)
+		}
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func trimTrailingSpaces(runes *[]rune) {
+	for len(*runes) > 0 && unicode.IsSpace((*runes)[len(*runes)-1]) {
+		*runes = (*runes)[:len(*runes)-1]
+	}
+}
+
+func isSemanticPausePunctuation(r rune) bool {
+	switch r {
+	case '，', ',', '、', '。', '；', ';', '：', ':', '！', '!', '？', '?':
+		return true
+	default:
+		return false
+	}
+}
+
+func isPairedBoundaryPunctuation(r rune) bool {
+	switch r {
+	case '“', '”', '‘', '’', '"', '\'', '《', '》', '〈', '〉', '（', '）', '(', ')', '【', '】', '[', ']', '「', '」', '『', '』':
+		return true
+	default:
+		return false
+	}
 }
 
 func asciiCharSpeech(r rune) string {

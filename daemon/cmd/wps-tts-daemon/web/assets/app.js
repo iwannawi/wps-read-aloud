@@ -10,7 +10,7 @@
   var WD_GO_TO_ABSOLUTE = 1;
   var WD_ACTIVE_END_PAGE_NUMBER = 3;
 
-  var rate = 1.0;
+  var rate = 1.2;
   var readMode = "continuous";
   var playbackToken = 0;
   var isReading = false;
@@ -20,6 +20,7 @@
   var RATE_OPTIONS = [
     { id: "rate075", value: 0.75, label: "0.75x" },
     { id: "rate10", value: 1.0, label: "1x" },
+    { id: "rate12", value: 1.2, label: "1.2x" },
     { id: "rate15", value: 1.5, label: "1.5x" }
   ];
 
@@ -72,7 +73,7 @@
       startup: true,
       width: 500,
       height: 150,
-      message: "请耐心等待，朗读模块正在启动... ..."
+      message: "朗读服务正在启动，请耐心等待..."
     };
     return showDialog(options);
   }
@@ -432,7 +433,7 @@
     var token = playbackToken;
     setReadingState(true);
     lastSelectedIndex = -1;
-    status("请耐心等待，朗读模块正在启动... ...");
+    status("朗读服务正在启动，请耐心等待...");
     var startupPopup = showStartupDialog();
 
     try {
@@ -530,7 +531,7 @@
         return RATE_OPTIONS[i].id;
       }
     }
-    return "rate10";
+    return "rate12";
   }
 
   function rateLabelForValue(value) {
@@ -539,7 +540,7 @@
         return RATE_OPTIONS[i].label;
       }
     }
-    return "1x";
+    return "1.2x";
   }
 
   function setRateById(id) {
@@ -596,6 +597,7 @@
       "modePageItem",
       "rate075",
       "rate10",
+      "rate12",
       "rate15",
       "checkStatus",
       "aboutAddin"
@@ -685,7 +687,7 @@
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "发布时间", value: "20260517" },
-        { label: "版本", value: "1.0.19" },
+        { label: "版本", value: "1.0.20" },
         { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" }
       ],

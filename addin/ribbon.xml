@@ -14,9 +14,10 @@
           </menu>
         </group>
         <group id="settingGroup" label="朗读设置">
-          <menu id="rateMenu" getLabel="ribbon.GetLabel" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" screentip="朗读语速" supertip="选择朗读语速，默认 1x。">
+          <menu id="rateMenu" getLabel="ribbon.GetLabel" size="large" getImage="ribbon.GetImage" getEnabled="ribbon.GetEnabled" screentip="朗读语速" supertip="选择朗读语速，默认 1.2x。">
             <button id="rate075" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
             <button id="rate10" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
+            <button id="rate12" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
             <button id="rate15" getLabel="ribbon.GetLabel" onAction="ribbon.OnAction"/>
           </menu>
         </group>
