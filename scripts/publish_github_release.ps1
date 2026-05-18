@@ -14,9 +14,9 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
 }
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$Deb = Join-Path $Root "dist\wps-read-aloud-xc_${Version}_arm64.deb"
-$ShaFile = Join-Path $Root "dist\wps-read-aloud-xc_${Version}_arm64.deb.sha256"
+$PlatformMatrix = Join-Path $Root "packaging\platforms.json"
 $ReleaseNotes = Join-Path $Root "RELEASE_NOTES.md"
+$Checksums = Join-Path $Root "CHECKSUMS.txt"
 $Log = Join-Path $Root "dist\github-release-${Tag}.log"
 
 function Write-Log($Text) {
@@ -156,10 +156,47 @@ function Invoke-CurlJson($Arguments) {
   return (($Output | Out-String) | ConvertFrom-Json)
 }
 
-foreach ($Path in @($Deb, $ShaFile, $ReleaseNotes)) {
+foreach ($Path in @($PlatformMatrix, $ReleaseNotes, $Checksums)) {
   if (!(Test-Path $Path)) {
     throw "Missing required file: $Path"
   }
+}
+$Targets = @((Get-Content -Raw -Encoding UTF8 $PlatformMatrix | ConvertFrom-Json).targets)
+$Artifacts = @()
+foreach ($Target in $Targets) {
+  $Artifact = Join-Path $Root ("dist\" + $Target.artifact)
+  $ShaFile = "$Artifact.sha256"
+  $Artifacts += $Artifact
+  $Artifacts += $ShaFile
+}
+foreach ($Path in $Artifacts) {
+  if (!(Test-Path $Path)) {
+    throw "Missing required release artifact: $Path"
+  }
+}
+$PythonCandidates = @(
+  "C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe",
+  "python"
+)
+$Python = ""
+foreach ($Candidate in $PythonCandidates) {
+  if ($Candidate -eq "python") {
+    $Cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($Cmd) {
+      $Python = $Cmd.Source
+      break
+    }
+  } elseif (Test-Path $Candidate) {
+    $Python = $Candidate
+    break
+  }
+}
+if ([string]::IsNullOrWhiteSpace($Python)) {
+  throw "Python is required to verify the five release artifacts before publishing."
+}
+& $Python (Join-Path $Root "packaging\verify_release_artifacts.py")
+if ($LASTEXITCODE -ne 0) {
+  throw "Five-package release verification failed."
 }
 if (Test-Path $Log) {
   Remove-Item -Force -LiteralPath $Log
@@ -171,7 +208,7 @@ if ([string]::IsNullOrWhiteSpace($Token)) {
 }
 
 $Body = [System.IO.File]::ReadAllText($ReleaseNotes, [System.Text.Encoding]::UTF8)
-$Body = $Body + "`n`n## SHA256`n`n````text`n" + [System.IO.File]::ReadAllText($ShaFile, [System.Text.Encoding]::ASCII).Trim() + "`n````"
+$Body = $Body + "`n`n## SHA256`n`n````text`n" + [System.IO.File]::ReadAllText($Checksums, [System.Text.Encoding]::ASCII).Trim() + "`n````"
 
 $Payload = @{
   tag_name = $Tag
@@ -227,11 +264,15 @@ try {
   Write-Log "Could not list existing assets; continuing with upload."
 }
 
-foreach ($Asset in @($Deb, $ShaFile)) {
+foreach ($Asset in $Artifacts) {
   $Name = [IO.Path]::GetFileName($Asset)
   $ContentType = "text/plain"
   if ($Name.EndsWith(".deb")) {
     $ContentType = "application/vnd.debian.binary-package"
+  } elseif ($Name.EndsWith(".zip")) {
+    $ContentType = "application/zip"
+  } elseif ($Name.EndsWith(".exe")) {
+    $ContentType = "application/vnd.microsoft.portable-executable"
   }
   foreach ($Existing in $ExistingAssets) {
     if ($Existing.name -eq $Name) {

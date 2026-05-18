@@ -17,6 +17,8 @@ dist/
 # 本地工具链和第三方二进制依赖
 tools/
 engines/
+resources/runtime/*/
+!resources/runtime/README.md
 voices/*.onnx
 voices/*.onnx.json
 voices/sherpa/

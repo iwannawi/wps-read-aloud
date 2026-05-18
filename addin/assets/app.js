@@ -133,8 +133,15 @@
   }
 
   function onGetImage(control) {
-    var icons = window.__WPS_READ_ALOUD_ICON_DATA || {};
-    return icons[controlId(control)] || icons.startSpeak || null;
+    var icons = {
+      startSpeak: "assets/icons/start.png",
+      stopSpeak: "assets/icons/stop.png",
+      modeMenu: "assets/icons/mode.png",
+      rateMenu: "assets/icons/rate.png",
+      checkStatus: "assets/icons/status.png",
+      aboutAddin: "assets/icons/about.png"
+    };
+    return icons[controlId(control)] || icons.startSpeak;
   }
 
   function userMessage(error) {
@@ -666,19 +673,23 @@
       }
       if (health.ok) {
         var probe = health.audio_probe || {};
+        var probeResults = probe.results || [];
+        var probeSummary = probeResults.length
+          ? "已检测 " + probeResults.length + " 个候选播放器，当前使用 " + (health.audio_player || "未检测到") + "。"
+          : "已完成播放器探测。";
         showDialog({
           title: "服务状态",
           variant: "success",
-          width: 680,
-          height: 480,
+          width: 860,
+          height: 600,
           message: "本地朗读服务运行正常",
           fields: [
             { label: "服务版本", value: health.version },
             { label: "语音引擎", value: health.engine || "未知" },
             { label: "当前播放器", value: health.audio_player || "未检测到" },
-            { label: "探测时间", value: probe.probed_at || "尚未探测" }
-          ],
-          details: probe.results || []
+            { label: "探测时间", value: probe.probed_at || "尚未探测" },
+            { label: "探测摘要", value: probeSummary }
+          ]
         });
       } else {
         notify("本地朗读服务已启动，但语音引擎不可用。请联系管理员重新安装。", "服务状态", "error");
@@ -692,16 +703,20 @@
     showDialog({
       title: "WPS 文档朗读助手",
       variant: "info",
-      message: "离线文档朗读工具",
+      about: true,
+      width: 960,
+      height: 720,
+      message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
+        { label: "版本", value: "1.0.28" },
+        { label: "发布日期", value: "20260518" },
+        { label: "开发者", value: "Zhang Jingyao" },
+        { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "适用操作系统", value: "ARM64 麒麟操作系统" },
         { label: "适用办公软件", value: "WPS Office 2023 for Linux / WPS Office 2019 for Linux" },
-        { label: "开发者", value: "Zhang Jingyao" },
-        { label: "发布时间", value: "20260518" },
-        { label: "版本", value: "1.0.24" },
-        { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "服务地址", value: "127.0.0.1:19860" },
-        { label: "Copyright", value: "Copyright (c) 2026 Zhang Jingyao. All rights reserved." }
+        { label: "版权", value: "Copyright © 2026 Zhang Jingyao" },
+        { label: "开源组件", value: "本软件包含第三方开源组件，相关版权和许可见第三方声明。" }
       ],
       links: [
         { label: "发布说明", url: SERVICE_BASE + "/docs/RELEASE_NOTES.md" },
@@ -796,3 +811,7 @@
   window.onGetEnabled = onGetEnabled;
   window.onGetLabel = onGetLabel;
 })();
+
+
+
+

@@ -5,35 +5,31 @@
 - ARM64 麒麟操作系统
 - WPS Office 2023 for Linux / WPS Office 2019 for Linux
 - 允许安装 WPS JS 加载项
-- 允许访问 `127.0.0.1:19860`
+- 允许访问 “127.0.0.1:19860”
 
 ## 2. 推荐安装方式
 
-企业交付优先使用 `.deb`：
+推荐使用 “.deb” 安装包：
 
-```bash
-sudo dpkg -i dist/wps-read-aloud-xc_1.0.24_arm64.deb
-```
+    sudo dpkg -i dist/wps-read-aloud-xc_1.0.28_kylin_arm64.deb
 
 安装后会自动：
-- 安装 `/opt/wps-read-aloud`
-- 安装 `/etc/wps-read-aloud/config.yaml`
-- 安装并启动 `wps-tts.service`
+- 安装 “/opt/wps-read-aloud”
+- 安装 “/etc/wps-read-aloud/config.yaml”
+- 安装并启动 “wps-tts.service”
 - 为已有普通用户注册 WPS 加载项
-- 写入日志 `/var/log/wps-read-aloud-install.log`
-- 安装说明和许可证到 `/usr/share/doc/wps-read-aloud-xc`
+- 写入日志 “/var/log/wps-read-aloud-install.log”
+- 安装说明和许可证到 “/usr/share/doc/wps-read-aloud-xc”
 
 如果安装前 WPS 已打开，需要重启 WPS。
 
 ## 3. 服务检查
 
-```bash
-systemctl status wps-tts.service --no-pager
-curl http://127.0.0.1:19860/health
-curl http://127.0.0.1:19860/selftest
-```
+    systemctl status wps-tts.service --no-pager
+    curl http://127.0.0.1:19860/health
+    curl http://127.0.0.1:19860/selftest
 
-`/health` 应返回可用引擎，`/selftest` 应能生成测试音频。
+“/health” 应返回可用引擎，“/selftest” 应能生成测试音频。
 
 ## 4. WPS 验收
 
@@ -43,45 +39,39 @@ curl http://127.0.0.1:19860/selftest
 - 能看到“文档朗读”选项卡。
 - “开始朗读”可按当前朗读方式启动。
 - “朗读方式”可选择连页朗读或当页朗读，默认连页朗读。
-- “朗读语速”可选择 `0.75x`、`1x`、`1.2x`、`1.5x`，默认 `1.2x`。
+- “朗读语速”可选择 “0.75x”、“1x”、“1.2x”、“1.5x”，默认 “1.2x”。
 - 朗读中开始朗读、朗读方式、朗读语速、状态检查、关于朗读均置灰。
-- 默认 `1.2x` 语速下，句内语义标点按约 `400ms` 节奏停顿，句末追加约 `600ms` 静音；其他语速下停顿时长按比例缩放。
+- 默认 “1.2x” 语速下，句内语义标点按约 “400ms” 节奏停顿，句末追加约 “600ms” 静音；其他语速下停顿时长按比例缩放。
 - “状态检查”能弹出本地服务状态。
 - “关于朗读”显示 WPS 文档朗读助手、版本、开发者和说明文件。
 - 朗读时 WPS 文档中当前语句会被选中，进入下一句时同步更新选区。
-- 服务接口只监听 `127.0.0.1:19860`。
+- 服务接口只监听 “127.0.0.1:19860”。
 - 断网状态下 Sherpa-onnx 离线模型能正常工作。
 
 ## 5. 手工构建流程
 
 如果需要重新构建交付包：
 
-```bash
-chmod +x packaging/kylin/build-arm64.sh packaging/deb/build-deb.sh
-./packaging/kylin/build-arm64.sh
-python3 packaging/deb/build_deb.py
-```
+    python3 packaging/build_all.py --target kylin-arm64
 
 构建前需要准备：
 
-```text
-engines/sherpa-onnx/sherpa-onnx-offline-tts
-engines/sherpa-onnx/lib/
-voices/sherpa/vits-zh-hf-fanchen-C/
-```
+    resources/runtime/linux-arm64/sherpa-onnx/sherpa-onnx-offline-tts
+    resources/runtime/linux-arm64/sherpa-onnx/lib/
+    voices/sherpa/vits-zh-hf-fanchen-C/
 
-`build-arm64.sh` 会同步 `addin/` 到 Go embedded web 目录；`build_deb.py` 会在打包前再次校验同步状态。
+构建入口会同步 “addin/” 到 Go embedded web 目录；“build_deb.py” 会在打包前再次校验同步状态。
 
 ## 6. 加载项注册修复
 
 如果安装后新建了 Linux 用户，或 WPS 加载项注册文件被清理，可在对应用户下执行：
 
-```bash
-wps-read-aloud-register
-```
+    wps-read-aloud-register
 
 如果要为所有普通用户重新注册：
 
-```bash
-sudo wps-read-aloud-register --all-users
-```
+    sudo wps-read-aloud-register --all-users
+
+
+
+

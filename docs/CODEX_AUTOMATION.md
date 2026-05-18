@@ -10,9 +10,9 @@
 2. 读取相关代码、脚本和文档，判断影响范围。
 3. 修改源码、脚本、配置或说明文件。
 4. 执行必要的语法检查、构建检查和安装包检查。
-5. 确认 `.gitignore` 排除的大文件、构建产物和缓存没有进入源码提交。
+5. 确认 “.gitignore” 排除的大文件、构建产物和缓存没有进入源码提交。
 6. 将源码变更提交到本地 Git。
-7. 推送到 GitHub `main` 分支。
+7. 推送到 GitHub “main” 分支。
 8. 如果本次修改形成正式交付版本，自动创建并推送版本标签。
 
 ## 普通修改
@@ -25,14 +25,14 @@
 - 错误提示优化
 - 不改变交付版本号的小修复
 
-普通修改默认提交到 `main` 并推送 GitHub，不创建新标签。
+普通修改默认提交到 “main” 并推送 GitHub，不创建新标签。
 
 ## 正式版本
 
 以下情况视为正式版本发布：
 
 - 用户明确要求重新交付安装包
-- 修改影响 `.deb` 安装包内容
+- 修改影响 “.deb” 安装包内容
 - 修改 WPS 加载项运行逻辑
 - 修改 Go 本地服务运行逻辑
 - 修改安装、卸载、注册、systemd 脚本
@@ -41,52 +41,48 @@
 正式版本发布时，Codex 自动执行：
 
 1. 更新版本号和发布说明。
-2. 重新构建 ARM64 `.deb`。
+2. 重新构建 ARM64 “.deb”。
 3. 拆包检查 Linux 路径、LF 换行、权限、符号链接、图标和可疑文件。
 4. 计算 SHA256。
 5. 提交源码变更。
-6. 创建并推送标签，格式为 `v版本号-发布日期`。
-7. 保持 `.deb` 不进入普通 Git 提交。
+6. 创建并推送标签，格式为 “v版本号-发布日期”。
+7. 保持 “.deb” 不进入普通 Git 提交。
 
 ## GitHub 管理
 
 远程仓库：
 
-```text
-https://github.com/iwannawi/wps-read-aloud
-```
+    https://github.com/iwannawi/wps-read-aloud
 
 默认分支：
 
-```text
-main
-```
+    main
 
 当前项目采用源码仓库加发布附件的方式管理：
 
 - Git 保存源码、脚本、配置、文档和许可证。
-- `.deb`、语音模型、离线引擎、工具链和构建缓存不进入普通 Git。
-- 正式交付包应通过 GitHub Release 或企业制品库保存。
+- “.deb”、语音模型、离线引擎、工具链和构建缓存不进入普通 Git。
+- 正式交付包应通过 GitHub Release 或组织制品库保存。
 
 ## 安全边界
 
 Codex 不会把 Personal Access Token 写入：
 
 - Git remote URL
-- `.git/config`
+- “.git/config”
 - 项目源码
 - 文档
 - 日志
 - GitHub Actions 工作流明文
 
-本项目不使用 SSH 连接 GitHub，统一使用 HTTPS。推送和 Release 发布脚本优先读取 GitHub CLI 的 `gh auth token`，其次读取本机 Git Credential Manager；脚本会校验 token 有效性和当前仓库的 HTTPS Git 访问能力，只有两者都不可用或不能访问仓库时才提示输入 token。安全输入框输入的新 token 可写回 Git Credential Manager，但任何情况下都不得把 token 写入项目文件或日志。
+本项目不使用 SSH 连接 GitHub，统一使用 HTTPS。推送和 Release 发布脚本优先读取 GitHub CLI 的 “gh auth token”，其次读取本机 Git Credential Manager；脚本会校验 token 有效性和当前仓库的 HTTPS Git 访问能力，只有两者都不可用或不能访问仓库时才提示输入 token。安全输入框输入的新 token 可写回 Git Credential Manager，但任何情况下都不得把 token 写入项目文件或日志。
 
 ## 需要暂停确认的情况
 
 只有以下高风险操作需要暂停确认：
 
 - 删除用户数据或不可恢复文件
-- 强制覆盖 GitHub 远程历史，例如 `git push --force`
+- 强制覆盖 GitHub 远程历史，例如 “git push --force”
 - 修改、暴露或保存新的密钥、token、证书
 - 清理非项目目录
 - 与当前需求无关的大规模重构

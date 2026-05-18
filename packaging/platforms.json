@@ -1,0 +1,45 @@
+{
+  "version": "1.0.28",
+  "targets": [
+    {
+      "id": "windows-x86",
+      "os": "windows",
+      "arch": "386",
+      "artifact": "wps-read-aloud-xc_1.0.28_windows_x86.exe",
+      "runtime": "resources/runtime/windows-x86"
+    },
+    {
+      "id": "kylin-amd64",
+      "os": "linux",
+      "distro": "kylin",
+      "arch": "amd64",
+      "artifact": "wps-read-aloud-xc_1.0.28_kylin_amd64.deb",
+      "runtime": "resources/runtime/linux-amd64"
+    },
+    {
+      "id": "kylin-arm64",
+      "os": "linux",
+      "distro": "kylin",
+      "arch": "arm64",
+      "artifact": "wps-read-aloud-xc_1.0.28_kylin_arm64.deb",
+      "runtime": "resources/runtime/linux-arm64"
+    },
+    {
+      "id": "uos-amd64",
+      "os": "linux",
+      "distro": "uos",
+      "arch": "amd64",
+      "artifact": "wps-read-aloud-xc_1.0.28_uos_amd64.deb",
+      "runtime": "resources/runtime/linux-amd64"
+    },
+    {
+      "id": "uos-arm64",
+      "os": "linux",
+      "distro": "uos",
+      "arch": "arm64",
+      "artifact": "wps-read-aloud-xc_1.0.28_uos_arm64.deb",
+      "runtime": "resources/runtime/linux-arm64"
+    }
+  ]
+}
+

@@ -7,6 +7,7 @@ body {
   margin: 0;
   min-width: 760px;
   min-height: 520px;
+  overflow: hidden;
   background: #f6f8fb;
   color: #1f2328;
   font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
@@ -78,6 +79,30 @@ dd {
   margin: 0;
   color: #111827;
   white-space: nowrap;
+}
+
+body.about .dialog {
+  padding-top: 26px;
+  gap: 14px;
+}
+
+body.about h1 {
+  font-size: 28px;
+}
+
+body.about #dialogMessage {
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+body.about dl {
+  grid-template-columns: 130px minmax(0, 1fr);
+  row-gap: 8px;
+  max-width: 720px;
+}
+
+body.about dd {
+  white-space: normal;
 }
 
 .detail-item,

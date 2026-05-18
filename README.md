@@ -1,34 +1,43 @@
 # WPS 文档朗读助手
 
 目标环境：
-- ARM64 麒麟操作系统
+- Windows x86 环境
+- x64 / ARM64 银河麒麟操作系统
+- x64 / ARM64 UOS 操作系统
 - WPS Office 2023 for Linux / WPS Office 2019 for Linux
 - 允许安装 WPS JS 加载项
 - WPS JS API 可读取 WPS 文字选区和全文
-- 本机允许访问 `127.0.0.1`
+- 本机允许访问 “127.0.0.1”
 
-本项目提供一个离线 WPS 文档朗读加载项。WPS 顶部新增“文档朗读”选项卡，用户可以从当前光标处开始朗读，支持连页朗读、当页朗读、语速选择、状态检查和关于说明。
-默认 `1.2x` 语速下，句内语义标点按约 `400ms` 节奏停顿，句末追加约 `600ms` 静音；其他语速下停顿时长随语速等比例缩放。
+本项目提供“WPS 文档朗读助手”，是一套面向 WPS 文字的离线文档朗读方案。软件在 WPS 顶部新增“文档朗读”选项卡，不使用独立右侧面板；用户可以直接通过 Ribbon 按钮启动朗读、停止朗读、选择朗读方式、选择朗读语速、检查服务状态和查看关于信息。
+
+整体方案由三部分组成：
+- WPS JS 加载项：负责读取 WPS 文字中的光标位置、当前页、选区和正文内容，控制顶部选项卡按钮状态，并在朗读过程中同步选中当前朗读语句，尽量保持当前语句在文档视图中可见。
+- Go 本地朗读服务：只监听 “127.0.0.1:19860”，负责文本切句、预处理、语音合成调度、音频播放、状态检查、日志和异常处理。
+- 离线语音引擎与模型：使用 Sherpa-onnx 离线 TTS，当前主模型为 “vits-zh-hf-fanchen-C”。安装包内置运行所需的模型、引擎、动态库、说明文件和许可证文件，目标机不需要联网下载依赖。
+
+朗读功能以中文文档为主，兼顾中英文数字混读。中文按句朗读；英文和数字会在文本预处理阶段转换为逐字符中文读法，避免模型跳过英文或数字。默认 “1.2x” 语速下，句内语义标点按约 “400ms” 节奏停顿，句末追加约 “600ms” 静音；其他语速下停顿时长随语速等比例缩放。
+
+当前项目采用同一套源码、多平台打包的交付方式。可生成五类安装包：Windows x86 exe 安装程序、银河麒麟 amd64 deb、银河麒麟 arm64 deb、UOS amd64 deb、UOS arm64 deb。各平台共用加载项前端、服务端业务逻辑、文档和模型目录规范；差异部分集中在原生语音引擎、daemon 二进制、服务启动方式和安装脚本。
 
 ## 项目结构
 
-```text
-addin/                         WPS JS 加载项源文件
-daemon/                        Go 本地服务，监听 127.0.0.1:19860
-packaging/deb/                 企业交付用 .deb 打包脚本和 Debian 控制脚本
-packaging/sync_addin_web.py    同步 addin/ 到 Go embed 目录
-third_party_licenses/          第三方许可证和声明
-engines/                       打包时放置 Sherpa-onnx 运行文件
-voices/                        打包时放置离线语音模型
-```
+    addin/                         WPS JS 加载项源文件
+    daemon/                        Go 本地服务，监听 127.0.0.1:19860
+    packaging/deb/                 .deb 打包脚本和 Debian 控制脚本
+    packaging/windows/             Windows 安装包脚本
+    packaging/platforms.json       多平台安装包矩阵
+    packaging/sync_addin_web.py    同步 addin/ 到 Go embed 目录
+    resources/runtime/             按系统和架构区分的原生语音引擎资源
+    third_party_licenses/          第三方许可证和声明
+    engines/                       打包时放置 Sherpa-onnx 运行文件
+    voices/                        打包时放置离线语音模型
 
 ## 工作方式
 
-```text
-WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx VITS fanchen-C -> 系统播放器
-```
+    WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sherpa-onnx VITS fanchen-C -> 系统播放器
 
-服务只监听 `127.0.0.1:19860`，不访问外网。当前版本统一使用 `vits-zh-hf-fanchen-C` 中文 VITS 模型。英文和数字会在文本预处理阶段转换为逐字符中文读法，例如 `WPS 2026` 会逐字符读出，避免模型跳过英文或数字。
+服务只监听 “127.0.0.1:19860”，不访问外网。加载项与服务端通过本机回环地址通信，避免暴露到局域网。安装脚本会尽量只增删本项目自己的 WPS 加载项条目，不覆盖其他已安装加载项；Linux 包也包含旧包名的冲突和替换声明，降低升级时的文件归属冲突风险。
 
 朗读时按完整语句切分、逐句合成并播放；加载项会在 WPS 文档中同步选中当前朗读语句，并尽量保持当前语句可见。启动朗读时，服务按句动态预处理，累计文本达到约 100 字即可开始播放；如果第一句已超过 100 字，只等待第一句合成完成，减少启动等待。
 
@@ -36,74 +45,78 @@ WPS 文字 -> 文档朗读选项卡 -> http://127.0.0.1:19860 -> Go 服务 -> Sh
 
 打包前需要准备：
 
-```text
-engines/sherpa-onnx/sherpa-onnx-offline-tts
-engines/sherpa-onnx/lib/
-voices/sherpa/vits-zh-hf-fanchen-C/
-```
+    resources/runtime/windows-x86/sherpa-onnx/
+    resources/runtime/linux-amd64/sherpa-onnx/
+    resources/runtime/linux-arm64/sherpa-onnx/
+    voices/sherpa/vits-zh-hf-fanchen-C/
 
-这些文件会被打入 `.deb`，安装到 `/opt/wps-read-aloud/engines` 和 `/opt/wps-read-aloud/voices`。
+这些文件会被打入对应安装包。Linux 系统安装到 “/opt/wps-read-aloud/engines” 和 “/opt/wps-read-aloud/voices”；Windows 系统安装到用户选择的程序目录。正式构建统一从 “resources/runtime” 读取平台运行时，不再从旧版 “engines” 目录复制，避免把目标环境不需要的库和废弃语音引擎带入安装包。
+
+多平台安装包说明见：
+
+    docs/MULTI_PLATFORM_PACKAGING.md
 
 ## 构建
 
-先同步加载项到 Go embed 目录：
+列出所有支持的安装包目标：
 
-```bash
-python3 packaging/sync_addin_web.py
-```
+    python3 packaging/build_all.py --list
 
-交叉编译 Linux ARM64 服务后，生成安装包：
+构建当前可交付的银河麒麟 arm64 包：
 
-```bash
-python3 packaging/deb/build_deb.py
-```
+    python3 packaging/build_all.py --target kylin-arm64
 
-最终交付文件：
+构建全部目标：
 
-```text
-dist/wps-read-aloud-xc_1.0.24_arm64.deb
-```
+    python3 packaging/build_all.py
+
+如果某个目标缺少对应系统和架构的 Sherpa-onnx 运行文件、模型资源或 daemon 二进制，脚本会停止并提示缺失路径，避免生成不可用安装包。
+
+正式发布版本必须一次性生成五类安装包，并通过发布前检查：
+
+    python packaging/verify_release_artifacts.py
+
+该检查会确认五个安装包、五个 SHA256 文件和 “CHECKSUMS.txt” 完全一致，同时检查安装包内没有混入目标环境不需要的资源，例如 Windows 包不包含 Linux systemd 文件，Linux 包不包含 Windows exe，所有包都不包含 Piper 或 eSpeak NG 等已弃用资源。
+
+最终交付文件示例：
+
+    dist/wps-read-aloud-xc_1.0.28_kylin_arm64.deb
 
 ## 安装
 
-在 ARM64 麒麟目标机执行：
+在 ARM64 银河麒麟目标机执行：
 
-```bash
-sudo dpkg -i dist/wps-read-aloud-xc_1.0.24_arm64.deb
-```
+    sudo dpkg -i dist/wps-read-aloud-xc_1.0.28_kylin_arm64.deb
 
 安装包会：
-- 安装程序文件到 `/opt/wps-read-aloud`
-- 安装配置文件到 `/etc/wps-read-aloud/config.yaml`
-- 安装并启动 `wps-tts.service`
+- 安装程序文件到 “/opt/wps-read-aloud”
+- 安装配置文件到 “/etc/wps-read-aloud/config.yaml”
+- 安装并启动 “wps-tts.service”
 - 为已有普通用户注册 WPS JS 加载项
-- 写入安装日志 `/var/log/wps-read-aloud-install.log`
-- 安装第三方组件许可证和交付说明到 `/usr/share/doc/wps-read-aloud-xc/`
+- 写入安装日志 “/var/log/wps-read-aloud-install.log”
+- 安装第三方组件许可证和交付说明到 “/usr/share/doc/wps-read-aloud-xc/”
 
 如果 WPS 已打开，安装后需要重启 WPS 才能加载新版“文档朗读”选项卡。
 
 ## 验证
 
-```bash
-systemctl status wps-tts.service --no-pager
-curl http://127.0.0.1:19860/health
-curl http://127.0.0.1:19860/selftest
-```
+    systemctl status wps-tts.service --no-pager
+    curl http://127.0.0.1:19860/health
+    curl http://127.0.0.1:19860/selftest
 
 打开 WPS 文字后，顶部应出现“文档朗读”选项卡。优先点击“状态检查”，如果弹出服务状态提示，说明 Ribbon 按钮回调已正常触发。
 
 ## 版本管理
 
 源码、脚本、配置、文档和许可证进入 Git。以下内容不进入普通 Git：
-- `dist/`
-- `engines/`
-- `tools/`
-- `voices/sherpa/`
+- “dist/”
+- “engines/”
+- “tools/”
+- “voices/sherpa/”
 - 构建缓存和下载缓存
 
 详细版本管理规则见：
 
-```text
-docs/GIT_WORKFLOW.md
-docs/CODEX_AUTOMATION.md
-```
+    docs/GIT_WORKFLOW.md
+    docs/CODEX_AUTOMATION.md
+

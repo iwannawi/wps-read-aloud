@@ -32,7 +32,7 @@
       payload = {};
     }
 
-    document.body.className = payload.compact ? "compact" : "";
+    document.body.className = payload.compact ? "compact" : (payload.about ? "about" : "");
     document.title = payload.title || "文档朗读";
     document.getElementById("dialogTitle").textContent = payload.title || "文档朗读";
     document.getElementById("dialogMessage").textContent = payload.message || "";

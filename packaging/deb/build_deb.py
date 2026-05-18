@@ -11,21 +11,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PKG_NAME = "wps-read-aloud-xc"
 ARTIFACT_NAME = "wps-read-aloud-xc"
-VERSION = os.environ.get("VERSION", "1.0.24")
+VERSION = os.environ.get("VERSION", "1.0.28")
 RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260518")
 ARCH = os.environ.get("ARCH", "arm64")
-BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{ARCH}"
+DISTRO = os.environ.get("DISTRO", "kylin").lower()
+DISTRO_LABELS = {
+    "kylin": "银河麒麟",
+    "uos": "UOS",
+}
+if DISTRO not in DISTRO_LABELS:
+    raise SystemExit(f"unsupported DISTRO: {DISTRO}; expected one of {', '.join(sorted(DISTRO_LABELS))}")
+BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{DISTRO}_{ARCH}"
 DATA = BUILD / "data"
 DEBIAN = BUILD / "DEBIAN"
 OUT = ROOT / "dist"
-DEB = OUT / f"{ARTIFACT_NAME}_{VERSION}_{ARCH}.deb"
+DEB = OUT / f"{ARTIFACT_NAME}_{VERSION}_{DISTRO}_{ARCH}.deb"
 ADDIN = ROOT / "addin"
 EMBEDDED_WEB = ROOT / "daemon" / "cmd" / "wps-tts-daemon" / "web"
+RUNTIME_ROOT = ROOT / "resources" / "runtime"
 
 
 REQUIRED = [
-    "engines/sherpa-onnx/sherpa-onnx-offline-tts",
-    "engines/sherpa-onnx/lib",
     "voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
     "voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt",
     "voices/sherpa/vits-zh-hf-fanchen-C/tokens.txt",
@@ -40,8 +46,8 @@ REQUIRED = [
     "RELEASE_NOTES.md",
     "ACCEPTANCE_TEST.md",
     "SOURCE_OFFER.md",
-    "CHECKSUMS.txt",
     "docs/BUILD_RELEASE_LESSONS.md",
+    "docs/MULTI_PLATFORM_PACKAGING.md",
 ]
 
 EXECUTABLE_SUFFIXES = {
@@ -61,8 +67,8 @@ PROJECT_DOC_FILES = [
     "RELEASE_NOTES.md",
     "ACCEPTANCE_TEST.md",
     "SOURCE_OFFER.md",
-    "CHECKSUMS.txt",
     "docs/BUILD_RELEASE_LESSONS.md",
+    "docs/MULTI_PLATFORM_PACKAGING.md",
 ]
 
 DUPLICATE_LIBRARY_LINKS = {}
@@ -114,11 +120,14 @@ def extract_daemon_from_deb(deb_path: Path, target: Path) -> bool:
 
 
 def resolve_daemon_binary() -> Path:
-    daemon = OUT / "wps-tts-daemon"
+    daemon = OUT / f"wps-tts-daemon-linux-{ARCH}"
     if daemon.is_file():
         return daemon
+    legacy_daemon = OUT / "wps-tts-daemon"
+    if ARCH == "arm64" and legacy_daemon.is_file():
+        return legacy_daemon
     candidates = sorted(
-        OUT.glob(f"{ARTIFACT_NAME}_*_{ARCH}.deb"),
+        OUT.glob(f"{ARTIFACT_NAME}_*_{DISTRO}_{ARCH}.deb"),
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
@@ -126,7 +135,7 @@ def resolve_daemon_binary() -> Path:
         if extract_daemon_from_deb(candidate, daemon):
             return daemon
     raise SystemExit(
-        "missing required file: dist/wps-tts-daemon; "
+        f"missing required file: dist/wps-tts-daemon-linux-{ARCH}; "
         "no previous package was available to reuse the daemon binary"
     )
 
@@ -137,8 +146,28 @@ def write_version_json(target: Path) -> None:
         "package": PKG_NAME,
         "version": VERSION,
         "release_date": RELEASE_DATE,
+        "distro": DISTRO,
+        "architecture": ARCH,
     }
     target.write_text(json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def linux_runtime_id() -> str:
+    if ARCH == "amd64":
+        return "linux-amd64"
+    if ARCH == "arm64":
+        return "linux-arm64"
+    raise SystemExit(f"unsupported ARCH: {ARCH}; expected amd64 or arm64")
+
+
+def sherpa_runtime_source() -> Path:
+    source = RUNTIME_ROOT / linux_runtime_id() / "sherpa-onnx"
+    if source.is_dir():
+        return source
+    raise SystemExit(
+        f"missing runtime files: {source}. "
+        "Place the matching sherpa-onnx binary and libraries under resources/runtime/<platform>/sherpa-onnx."
+    )
 
 
 def copytree_contents(src: Path, dst: Path) -> None:
@@ -179,6 +208,10 @@ def normalize_control() -> None:
             out.append(f"Version: {VERSION}")
         elif line.startswith("Architecture:"):
             out.append(f"Architecture: {ARCH}")
+        elif line.startswith("Description:"):
+            out.append(f"Description: WPS 文档朗读助手 for {DISTRO_LABELS[DISTRO]} {ARCH}")
+        elif "Supports ARM64 麒麟操作系统" in line:
+            out.append(f" Supports {DISTRO_LABELS[DISTRO]} {ARCH} and WPS Office 2023 for Linux / WPS Office 2019 for Linux.")
         else:
             out.append(line)
     (DEBIAN / "control").write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
@@ -273,7 +306,7 @@ def main() -> None:
     write_version_json(DATA / "opt/wps-read-aloud/version.json")
     copytree_contents(ROOT / "addin", DATA / "opt/wps-read-aloud/addin")
     (DATA / "opt/wps-read-aloud/engines").mkdir(parents=True, exist_ok=True)
-    copytree_contents(ROOT / "engines" / "sherpa-onnx", DATA / "opt/wps-read-aloud/engines/sherpa-onnx")
+    copytree_contents(sherpa_runtime_source(), DATA / "opt/wps-read-aloud/engines/sherpa-onnx")
     (DATA / "opt/wps-read-aloud/voices").mkdir(parents=True, exist_ok=True)
     copytree_contents(ROOT / "voices" / "sherpa", DATA / "opt/wps-read-aloud/voices/sherpa")
     replace_duplicate_libraries_with_links()
@@ -305,3 +338,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
