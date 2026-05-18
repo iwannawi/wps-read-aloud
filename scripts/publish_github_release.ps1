@@ -33,19 +33,8 @@ function ConvertFrom-SecureStringPlain($SecureString) {
 }
 
 function Get-GitHubTokenFromGcm {
-  $Gcm = Get-Command git-credential-manager.exe -ErrorAction SilentlyContinue
-  if (!$Gcm) {
-    $KnownGcm = "C:\Users\zhangjingyao\scoop\apps\git\2.53.0.2\mingw64\bin\git-credential-manager.exe"
-    if (Test-Path $KnownGcm) {
-      $GcmPath = $KnownGcm
-    } else {
-      return ""
-    }
-  } else {
-    $GcmPath = $Gcm.Source
-  }
   $InputText = "protocol=https`nhost=github.com`npath=$Owner/$Repo.git`n`n"
-  $Cred = $InputText | & $GcmPath get
+  $Cred = $InputText | & git credential fill
   if ($LASTEXITCODE -ne 0 -or !$Cred) {
     return ""
   }
@@ -61,19 +50,8 @@ function Save-GitHubTokenToGcm($Token) {
   if ([string]::IsNullOrWhiteSpace($Token)) {
     return
   }
-  $Gcm = Get-Command git-credential-manager.exe -ErrorAction SilentlyContinue
-  if (!$Gcm) {
-    $KnownGcm = "C:\Users\zhangjingyao\scoop\apps\git\2.53.0.2\mingw64\bin\git-credential-manager.exe"
-    if (Test-Path $KnownGcm) {
-      $GcmPath = $KnownGcm
-    } else {
-      return
-    }
-  } else {
-    $GcmPath = $Gcm.Source
-  }
   $InputText = "protocol=https`nhost=github.com`npath=$Owner/$Repo.git`nusername=x-access-token`npassword=$Token`n`n"
-  $InputText | & $GcmPath approve | Out-Null
+  $InputText | & git credential approve | Out-Null
 }
 
 function Get-GitHubTokenFromGh {
@@ -92,11 +70,23 @@ function Test-GitHubToken($Token) {
   if ([string]::IsNullOrWhiteSpace($Token)) {
     return $false
   }
-  & curl.exe -sS --fail-with-body -L `
+  & curl.exe --ssl-no-revoke -sS --fail-with-body -L `
     -H "Authorization: Bearer $Token" `
     -H "Accept: application/vnd.github+json" `
     -H "User-Agent: Codex-WPS-Read-Aloud" `
     "https://api.github.com/user" | Out-Null
+  return ($LASTEXITCODE -eq 0)
+}
+
+function Test-GitHubRepoApiAccess($Token) {
+  if ([string]::IsNullOrWhiteSpace($Token)) {
+    return $false
+  }
+  & curl.exe --ssl-no-revoke -sS --fail-with-body -L `
+    -H "Authorization: Bearer $Token" `
+    -H "Accept: application/vnd.github+json" `
+    -H "User-Agent: Codex-WPS-Read-Aloud" `
+    "https://api.github.com/repos/$Owner/$Repo" | Out-Null
   return ($LASTEXITCODE -eq 0)
 }
 
@@ -115,7 +105,7 @@ function Test-GitHubGitAccess($Token) {
 }
 
 function Test-GitHubCredential($Token) {
-  return ((Test-GitHubToken $Token) -and (Test-GitHubGitAccess $Token))
+  return ((Test-GitHubToken $Token) -and (Test-GitHubRepoApiAccess $Token) -and (Test-GitHubGitAccess $Token))
 }
 
 function Get-GitHubToken {
@@ -139,14 +129,14 @@ function Get-GitHubToken {
   $Secure = Read-Host "Enter GitHub token" -AsSecureString
   $Token = ConvertFrom-SecureStringPlain $Secure
   if (!(Test-GitHubCredential $Token)) {
-    throw "GitHub token cannot access this repository through HTTPS Git."
+    throw "GitHub token cannot access this repository through GitHub API and HTTPS Git. Use a classic token with repo scope, or a fine-grained token with Contents read/write and Metadata read for this repository."
   }
   Save-GitHubTokenToGcm $Token
   return $Token
 }
 
 function Invoke-CurlJson($Arguments) {
-  $Output = & curl.exe @Arguments 2>&1
+  $Output = & curl.exe --ssl-no-revoke @Arguments 2>&1
   if ($LASTEXITCODE -ne 0) {
     if ($Output) {
       Write-Log ($Output | Out-String)
@@ -280,7 +270,7 @@ foreach ($Asset in $Artifacts) {
       $DeleteArgs = @("-sS", "--fail-with-body", "-L", "-X", "DELETE") + $BaseHeaders + @(
         "https://api.github.com/repos/$Owner/$Repo/releases/assets/$($Existing.id)"
       )
-      & curl.exe @DeleteArgs | Out-Null
+      & curl.exe --ssl-no-revoke @DeleteArgs | Out-Null
       if ($LASTEXITCODE -ne 0) {
         throw "Asset delete failed: $Name"
       }
@@ -297,7 +287,7 @@ foreach ($Asset in $Artifacts) {
     "--data-binary", "@$Asset",
     "--url", $UploadUrl
   )
-  & curl.exe @UploadArgs | Out-Null
+  & curl.exe --ssl-no-revoke @UploadArgs | Out-Null
   if ($LASTEXITCODE -ne 0) {
     throw "Asset upload failed: $Name"
   }
