@@ -9,10 +9,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PKG_NAME = "wps-read-aloud-xc"
-ARTIFACT_NAME = "wps-read-aloud-xc"
-VERSION = os.environ.get("VERSION", "1.0.28")
-RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260518")
+BASE_PKG_NAME = "wps-read-aloud-xc"
+UOS_APP_ID = "cn.wps-read-aloud-xc"
+VERSION = os.environ.get("VERSION", "1.0.29")
+RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260519")
 ARCH = os.environ.get("ARCH", "arm64")
 DISTRO = os.environ.get("DISTRO", "kylin").lower()
 DISTRO_LABELS = {
@@ -21,11 +21,16 @@ DISTRO_LABELS = {
 }
 if DISTRO not in DISTRO_LABELS:
     raise SystemExit(f"unsupported DISTRO: {DISTRO}; expected one of {', '.join(sorted(DISTRO_LABELS))}")
+OUT = ROOT / "dist"
+PKG_NAME = UOS_APP_ID if DISTRO == "uos" else BASE_PKG_NAME
+ARTIFACT_NAME = UOS_APP_ID if DISTRO == "uos" else BASE_PKG_NAME
+APP_ROOT_REL = f"opt/apps/{UOS_APP_ID}/files" if DISTRO == "uos" else "opt/wps-read-aloud"
+CONFIG_REL = f"{APP_ROOT_REL}/config.yaml" if DISTRO == "uos" else "etc/wps-read-aloud/config.yaml"
+DOC_REL = f"{APP_ROOT_REL}/doc" if DISTRO == "uos" else f"usr/share/doc/{BASE_PKG_NAME}"
 BUILD = ROOT / "build" / "deb" / f"{PKG_NAME}_{VERSION}_{DISTRO}_{ARCH}"
 DATA = BUILD / "data"
 DEBIAN = BUILD / "DEBIAN"
-OUT = ROOT / "dist"
-DEB = OUT / f"{ARTIFACT_NAME}_{VERSION}_{DISTRO}_{ARCH}.deb"
+DEB = OUT / f"{ARTIFACT_NAME}_{VERSION}_{ARCH}.deb"
 ADDIN = ROOT / "addin"
 EMBEDDED_WEB = ROOT / "daemon" / "cmd" / "wps-tts-daemon" / "web"
 RUNTIME_ROOT = ROOT / "resources" / "runtime"
@@ -51,8 +56,8 @@ REQUIRED = [
 ]
 
 EXECUTABLE_SUFFIXES = {
-    "opt/wps-read-aloud/daemon/wps-tts-daemon",
-    "opt/wps-read-aloud/engines/sherpa-onnx/sherpa-onnx-offline-tts",
+    f"{APP_ROOT_REL}/daemon/wps-tts-daemon",
+    f"{APP_ROOT_REL}/engines/sherpa-onnx/sherpa-onnx-offline-tts",
     "usr/bin/wps-read-aloud-register",
 }
 
@@ -74,9 +79,9 @@ PROJECT_DOC_FILES = [
 DUPLICATE_LIBRARY_LINKS = {}
 
 EXCLUDED_PACKAGE_FILES = {
-    "opt/wps-read-aloud/engines/.gitkeep",
-    "opt/wps-read-aloud/engines/README.md",
-    "opt/wps-read-aloud/voices/.gitkeep",
+    f"{APP_ROOT_REL}/engines/.gitkeep",
+    f"{APP_ROOT_REL}/engines/README.md",
+    f"{APP_ROOT_REL}/voices/.gitkeep",
 }
 
 
@@ -107,7 +112,19 @@ def extract_daemon_from_deb(deb_path: Path, target: Path) -> bool:
     try:
         data_tar = extract_ar_member(deb_path, "data.tar.gz")
         with tarfile.open(fileobj=io.BytesIO(data_tar), mode="r:gz") as tar:
-            member = tar.getmember("opt/wps-read-aloud/daemon/wps-tts-daemon")
+            member = None
+            for name in (
+                f"{APP_ROOT_REL}/daemon/wps-tts-daemon",
+                "opt/wps-read-aloud/daemon/wps-tts-daemon",
+                f"opt/apps/{UOS_APP_ID}/files/daemon/wps-tts-daemon",
+            ):
+                try:
+                    member = tar.getmember(name)
+                    break
+                except KeyError:
+                    continue
+            if member is None:
+                return False
             source = tar.extractfile(member)
             if source is None:
                 return False
@@ -127,7 +144,12 @@ def resolve_daemon_binary() -> Path:
     if ARCH == "arm64" and legacy_daemon.is_file():
         return legacy_daemon
     candidates = sorted(
-        OUT.glob(f"{ARTIFACT_NAME}_*_{DISTRO}_{ARCH}.deb"),
+        list(OUT.glob(f"{ARTIFACT_NAME}_*_{DISTRO}_{ARCH}.deb"))
+        + list(OUT.glob(f"{BASE_PKG_NAME}_*_{DISTRO}_{ARCH}.deb"))
+        + list(OUT.glob(f"{UOS_APP_ID}_*_{DISTRO}_{ARCH}.deb"))
+        + list(OUT.glob(f"{ARTIFACT_NAME}_*_{ARCH}.deb"))
+        + list(OUT.glob(f"{BASE_PKG_NAME}_*_{ARCH}.deb"))
+        + list(OUT.glob(f"{UOS_APP_ID}_*_{ARCH}.deb")),
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
@@ -144,12 +166,82 @@ def write_version_json(target: Path) -> None:
     info = {
         "name": "WPS 文档朗读助手",
         "package": PKG_NAME,
+        "base_package": BASE_PKG_NAME,
         "version": VERSION,
         "release_date": RELEASE_DATE,
         "distro": DISTRO,
         "architecture": ARCH,
+        "install_root": "/" + APP_ROOT_REL,
     }
     target.write_text(json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def write_linux_config(target: Path) -> None:
+    root = "/" + APP_ROOT_REL
+    voice = f"{root}/voices/sherpa/vits-zh-hf-fanchen-C"
+    target.write_text(
+        "\n".join(
+            [
+                'listen: "127.0.0.1:19860"',
+                "sherpa:",
+                f'  bin: "{root}/engines/sherpa-onnx/sherpa-onnx-offline-tts"',
+                "  num_threads: 2",
+                "  target_sample_rate: 16000",
+                f'  vits_model: "{voice}/vits-zh-hf-fanchen-C.onnx"',
+                f'  vits_lexicon: "{voice}/lexicon.txt"',
+                f'  vits_tokens: "{voice}/tokens.txt"',
+                f'  vits_rule_fsts: "{voice}/phone.fst,{voice}/date.fst,{voice}/number.fst,{voice}/new_heteronym.fst"',
+                "  vits_speaker_id: 14",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def write_systemd_service(target: Path) -> None:
+    root = "/" + APP_ROOT_REL
+    target.write_text(
+        "\n".join(
+            [
+                "[Unit]",
+                "Description=WPS Read Aloud Local TTS Service",
+                "After=network.target sound.target",
+                "",
+                "[Service]",
+                "Type=simple",
+                f"Environment=WPS_READ_ALOUD_ROOT={root}",
+                f"Environment=WPS_READ_ALOUD_DOC_DIR=/{DOC_REL}",
+                f"ExecStart={root}/daemon/wps-tts-daemon -config /{CONFIG_REL}",
+                "Restart=on-failure",
+                "RestartSec=2",
+                "",
+                "[Install]",
+                "WantedBy=multi-user.target",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def write_debian_script(script: str) -> None:
+    src = ROOT / "packaging" / "deb" / script
+    text = src.read_text(encoding="utf-8")
+    replacements = {
+        "@APP_ROOT@": "/" + APP_ROOT_REL,
+        "@CONFIG_DIR@": "/" + str(Path(CONFIG_REL).parent).replace("\\", "/"),
+        "@CONFIG_PATH@": "/" + CONFIG_REL,
+        "@DOC_DIR@": "/" + DOC_REL,
+        "@PACKAGE_NAME@": PKG_NAME,
+        "@BASE_PACKAGE_NAME@": BASE_PKG_NAME,
+        "@ADDIN_VERSION@": VERSION,
+    }
+    for key, value in replacements.items():
+        text = text.replace(key, value)
+    (DEBIAN / script).write_text(text, encoding="utf-8", newline="\n")
 
 
 def linux_runtime_id() -> str:
@@ -204,13 +296,31 @@ def normalize_control() -> None:
     lines = src.read_text(encoding="utf-8").splitlines()
     out = []
     for line in lines:
-        if line.startswith("Version:"):
+        if line.startswith("Package:"):
+            out.append(f"Package: {PKG_NAME}")
+        elif line.startswith("Version:"):
             out.append(f"Version: {VERSION}")
         elif line.startswith("Architecture:"):
             out.append(f"Architecture: {ARCH}")
+        elif line.startswith("Provides:"):
+            out.append(f"Provides: {BASE_PKG_NAME}, wps-read-aloud")
+        elif line.startswith("Conflicts:"):
+            conflicts = "wps-read-aloud-zhangjingyao"
+            if DISTRO == "uos":
+                conflicts += f", {BASE_PKG_NAME}"
+            else:
+                conflicts += f", {UOS_APP_ID}"
+            out.append(f"Conflicts: {conflicts}")
+        elif line.startswith("Replaces:"):
+            replaces = "wps-read-aloud-zhangjingyao"
+            if DISTRO == "uos":
+                replaces += f", {BASE_PKG_NAME}"
+            else:
+                replaces += f", {UOS_APP_ID}"
+            out.append(f"Replaces: {replaces}")
         elif line.startswith("Description:"):
             out.append(f"Description: WPS 文档朗读助手 for {DISTRO_LABELS[DISTRO]} {ARCH}")
-        elif "Supports ARM64 麒麟操作系统" in line:
+        elif line.startswith(" Supports "):
             out.append(f" Supports {DISTRO_LABELS[DISTRO]} {ARCH} and WPS Office 2023 for Linux / WPS Office 2019 for Linux.")
         else:
             out.append(line)
@@ -299,24 +409,27 @@ def main() -> None:
 
     normalize_control()
     for script in ["preinst", "postinst", "prerm", "postrm"]:
-        shutil.copy2(ROOT / "packaging" / "deb" / script, DEBIAN / script)
+        write_debian_script(script)
 
-    (DATA / "opt/wps-read-aloud/daemon").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(resolve_daemon_binary(), DATA / "opt/wps-read-aloud/daemon/wps-tts-daemon")
-    write_version_json(DATA / "opt/wps-read-aloud/version.json")
-    copytree_contents(ROOT / "addin", DATA / "opt/wps-read-aloud/addin")
-    (DATA / "opt/wps-read-aloud/engines").mkdir(parents=True, exist_ok=True)
-    copytree_contents(sherpa_runtime_source(), DATA / "opt/wps-read-aloud/engines/sherpa-onnx")
-    (DATA / "opt/wps-read-aloud/voices").mkdir(parents=True, exist_ok=True)
-    copytree_contents(ROOT / "voices" / "sherpa", DATA / "opt/wps-read-aloud/voices/sherpa")
+    app_root = DATA / APP_ROOT_REL
+    (app_root / "daemon").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(resolve_daemon_binary(), app_root / "daemon/wps-tts-daemon")
+    write_version_json(app_root / "version.json")
+    copytree_contents(ROOT / "addin", app_root / "addin")
+    (app_root / "engines").mkdir(parents=True, exist_ok=True)
+    copytree_contents(sherpa_runtime_source(), app_root / "engines/sherpa-onnx")
+    (app_root / "voices").mkdir(parents=True, exist_ok=True)
+    copytree_contents(ROOT / "voices" / "sherpa", app_root / "voices/sherpa")
     replace_duplicate_libraries_with_links()
-    (DATA / "etc/wps-read-aloud").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "daemon" / "config.example.yaml", DATA / "etc/wps-read-aloud/config.yaml")
+    (DATA / CONFIG_REL).parent.mkdir(parents=True, exist_ok=True)
+    write_linux_config(DATA / CONFIG_REL)
     (DATA / "lib/systemd/system").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "packaging" / "deb" / "wps-tts.service", DATA / "lib/systemd/system/wps-tts.service")
+    write_systemd_service(DATA / "lib/systemd/system/wps-tts.service")
     (DATA / "usr/bin").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "packaging" / "deb" / "wps-read-aloud-register", DATA / "usr/bin/wps-read-aloud-register")
-    doc_dir = DATA / "usr/share/doc/wps-read-aloud-xc"
+    register = DATA / "usr/bin/wps-read-aloud-register"
+    write_debian_script("wps-read-aloud-register")
+    shutil.move(DEBIAN / "wps-read-aloud-register", register)
+    doc_dir = DATA / DOC_REL
     doc_dir.mkdir(parents=True, exist_ok=True)
     for doc in DOC_FILES:
         shutil.copy2(ROOT / "third_party_licenses" / doc, doc_dir / doc)

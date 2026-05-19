@@ -32,19 +32,48 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const appVersionPath = "/opt/wps-read-aloud/version.json"
-const audioProbePath = "/var/lib/wps-read-aloud/audio-player.json"
-const addinDiskDir = "/opt/wps-read-aloud/addin"
 const prefetchTextTarget = 100
 const pauseBaseRate = 1.2
 const standardPauseMsAtBaseRate = 400
 const sentenceEndPauseMsAtBaseRate = 600
 
 type AppInfo struct {
-	Name        string `json:"name"`
-	Package     string `json:"package"`
-	Version     string `json:"version"`
-	ReleaseDate string `json:"release_date"`
+	Name         string `json:"name"`
+	Package      string `json:"package"`
+	Version      string `json:"version"`
+	ReleaseDate  string `json:"release_date"`
+	Distro       string `json:"distro"`
+	Architecture string `json:"architecture"`
+	InstallRoot  string `json:"install_root"`
+}
+
+func appRoot() string {
+	if value := strings.TrimSpace(os.Getenv("WPS_READ_ALOUD_ROOT")); value != "" {
+		return filepath.Clean(value)
+	}
+	return "/opt/wps-read-aloud"
+}
+
+func appVersionPath() string {
+	return filepath.Join(appRoot(), "version.json")
+}
+
+func addinDiskDir() string {
+	return filepath.Join(appRoot(), "addin")
+}
+
+func docDir() string {
+	if value := strings.TrimSpace(os.Getenv("WPS_READ_ALOUD_DOC_DIR")); value != "" {
+		return filepath.Clean(value)
+	}
+	return "/usr/share/doc/wps-read-aloud-xc"
+}
+
+func audioProbePath() string {
+	if value := strings.TrimSpace(os.Getenv("WPS_READ_ALOUD_AUDIO_PROBE")); value != "" {
+		return filepath.Clean(value)
+	}
+	return "/var/lib/wps-read-aloud/audio-player.json"
 }
 
 type Config struct {
@@ -316,7 +345,7 @@ func diskIconPath(requestPath string) string {
 	name := filepath.Base(requestPath)
 	switch name {
 	case "start.png", "stop.png", "mode.png", "rate.png", "status.png", "about.png":
-		path := filepath.Join(addinDiskDir, "assets", "icons", name)
+		path := filepath.Join(addinDiskDir(), "assets", "icons", name)
 		if fileExists(path) {
 			return path
 		}
@@ -337,7 +366,7 @@ func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join("/usr/share/doc/wps-read-aloud-xc", name))
+	http.ServeFile(w, r, filepath.Join(docDir(), name))
 }
 
 func (s *Server) speak(w http.ResponseWriter, r *http.Request) {
@@ -1142,7 +1171,7 @@ func createProbeWav() (string, error) {
 
 func loadAudioProbe() audioProbeResult {
 	var result audioProbeResult
-	data, err := os.ReadFile(audioProbePath)
+	data, err := os.ReadFile(audioProbePath())
 	if err != nil {
 		return result
 	}
@@ -1164,7 +1193,7 @@ func appVersion() string {
 }
 
 func loadAppInfo() AppInfo {
-	data, err := os.ReadFile(appVersionPath)
+	data, err := os.ReadFile(appVersionPath())
 	if err != nil {
 		return AppInfo{}
 	}
@@ -1176,14 +1205,14 @@ func loadAppInfo() AppInfo {
 }
 
 func saveAudioProbe(result audioProbeResult) error {
-	if err := os.MkdirAll(filepath.Dir(audioProbePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(audioProbePath()), 0o755); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(audioProbePath, append(data, '\n'), 0o644)
+	return os.WriteFile(audioProbePath(), append(data, '\n'), 0o644)
 }
 
 func preprocessFanchenText(text string, rate float64) string {
@@ -1731,7 +1760,7 @@ func healthMessage(engine string) string {
 	case "sherpa-onnx":
 		return "Sherpa-onnx VITS fanchen-C TTS engine is available."
 	default:
-		return "No TTS engine is available. Please reinstall the package or check /opt/wps-read-aloud/engines/sherpa-onnx and /opt/wps-read-aloud/voices/sherpa."
+		return "No TTS engine is available. Please reinstall the package or check the bundled engines and voices under the application install directory."
 	}
 }
 
@@ -1752,7 +1781,7 @@ func friendlyError(err error) string {
 	msg := err.Error()
 	switch {
 	case strings.Contains(msg, "no available tts engine"):
-		return "朗读引擎不可用，请重新安装加载项安装包，或联系管理员检查 /opt/wps-read-aloud/engines 和 /opt/wps-read-aloud/voices。"
+		return "朗读引擎不可用，请重新安装对应系统的加载项安装包，或联系管理员检查安装目录下的 engines 和 voices。"
 	case strings.Contains(msg, "sherpa-onnx failed"):
 		return "Sherpa-onnx 语音引擎启动失败，已记录到系统日志。请联系管理员执行 journalctl -u wps-tts.service -n 80 --no-pager 查看原因。"
 	case strings.Contains(msg, "no available audio player"):

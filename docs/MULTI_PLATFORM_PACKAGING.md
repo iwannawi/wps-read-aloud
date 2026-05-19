@@ -6,11 +6,11 @@
 
 | 分类 | 目标系统 | CPU 架构 | 安装包格式 | 文件名示例 |
 | --- | --- | --- | --- | --- |
-| Windows | Windows | x86 | exe 安装程序 | wps-read-aloud-xc_1.0.28_windows_x86.exe |
-| 银河麒麟 x64 | 银河麒麟 | amd64 | deb | wps-read-aloud-xc_1.0.28_kylin_amd64.deb |
-| 银河麒麟 arm64 | 银河麒麟 | arm64 | deb | wps-read-aloud-xc_1.0.28_kylin_arm64.deb |
-| UOS x64 | UOS | amd64 | deb | wps-read-aloud-xc_1.0.28_uos_amd64.deb |
-| UOS arm64 | UOS | arm64 | deb | wps-read-aloud-xc_1.0.28_uos_arm64.deb |
+| Windows | Windows | x86 | exe 安装程序 | wps-read-aloud-xc_1.0.29_windows_x86.exe |
+| 银河麒麟 x64 | 银河麒麟 | amd64 | deb | wps-read-aloud-xc_1.0.29_amd64.deb |
+| 银河麒麟 arm64 | 银河麒麟 | arm64 | deb | wps-read-aloud-xc_1.0.29_arm64.deb |
+| UOS x64 | UOS | amd64 | deb | cn.wps-read-aloud-xc_1.0.29_amd64.deb |
+| UOS arm64 | UOS | arm64 | deb | cn.wps-read-aloud-xc_1.0.29_arm64.deb |
 
 ## 共用部分
 
@@ -21,6 +21,8 @@
 
 ## 平台差异
 
+- 银河麒麟包名为 “wps-read-aloud-xc”，安装路径为 “/opt/wps-read-aloud”。
+- UOS 包名为 “cn.wps-read-aloud-xc”，安装路径为 “/opt/apps/cn.wps-read-aloud-xc/files”。
 - Linux 使用 systemd 启动本地朗读服务。
 - Windows 使用登录任务启动本地朗读服务。
 - Linux deb 由 packaging/deb/build_deb.py 生成。
@@ -33,9 +35,13 @@
 
     python packaging/build_all.py --list
 
-构建单个目标：
+构建单个目标示例：
 
+    python packaging/build_all.py --target windows-x86
+    python packaging/build_all.py --target kylin-amd64
     python packaging/build_all.py --target kylin-arm64
+    python packaging/build_all.py --target uos-amd64
+    python packaging/build_all.py --target uos-arm64
 
 构建全部目标：
 
@@ -60,5 +66,5 @@
 - 安装包内不得混入 Piper、eSpeak NG 等已弃用资源。
 - 安装包内不得混入其他平台专用二进制或服务文件。
 
-旧版手工安装脚本 “packaging/kylin/install.sh” 已停用。正式交付只能使用按目标环境生成的安装包，不能直接复制本地 “engines” 目录。
+旧版手工安装脚本已删除。正式交付只能使用按目标环境生成的安装包，不能直接复制本地 “engines” 目录。
 

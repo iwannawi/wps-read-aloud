@@ -9,11 +9,13 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] postrm $*"
 systemctl daemon-reload || true
 
 if [[ "${1:-}" = "purge" ]]; then
-  if [[ -f /opt/wps-read-aloud/.wps-read-aloud-xc || -f /opt/wps-read-aloud/.wps-read-aloud-zhangjingyao ]]; then
-    rm -rf /opt/wps-read-aloud
+  APP_DIR="@APP_ROOT@"
+  CONFIG_DIR="@CONFIG_DIR@"
+  if [[ -f "${APP_DIR}/.wps-read-aloud-xc" || -f "${APP_DIR}/.wps-read-aloud-zhangjingyao" ]]; then
+    rm -rf "${APP_DIR}"
   else
-    echo "Skip removing /opt/wps-read-aloud because ownership marker is missing."
+    echo "Skip removing ${APP_DIR} because ownership marker is missing."
   fi
-  rm -rf /etc/wps-read-aloud
+  rm -rf "${CONFIG_DIR}"
   rm -rf /var/lib/wps-read-aloud
 fi

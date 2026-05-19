@@ -1,5 +1,5 @@
 ﻿param(
-  [string]$InstallDir = "$env:ProgramFiles\WPS Read Aloud XC"
+  [string]$InstallDir = "$env:LOCALAPPDATA\Programs\WPS Read Aloud XC"
 )
 
 $ErrorActionPreference = "SilentlyContinue"

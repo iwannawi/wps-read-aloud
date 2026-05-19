@@ -708,8 +708,8 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.0.28" },
-        { label: "发布日期", value: "20260518" },
+        { label: "版本", value: "1.0.29" },
+        { label: "发布日期", value: "20260519" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-xc" },
         { label: "适用操作系统", value: "ARM64 麒麟操作系统" },

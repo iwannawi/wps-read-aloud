@@ -1,43 +1,57 @@
 # Debian 安装包说明
 
-本目录用于生成 ARM64 麒麟操作系统可安装的 Debian 安装包。
+本目录用于生成银河麒麟和 UOS 的 Debian 安装包。正式出版本时由上级脚本 “packaging/build_all.py” 统一构建，不再保留单独面向某一系统或某一架构的安装脚本。
 
 ## 输出文件
 
-    dist/wps-read-aloud-xc_1.0.28_kylin_arm64.deb
+当前版本的 Linux 输出文件为：
 
-Debian 内部包名为 “wps-read-aloud-xc”。安装包文件名统一使用小写，并带有系统分类和 CPU 架构，便于 Linux 环境和脚本稳定处理。
+    dist/wps-read-aloud-xc_1.0.29_amd64.deb
+    dist/wps-read-aloud-xc_1.0.29_arm64.deb
+    dist/cn.wps-read-aloud-xc_1.0.29_amd64.deb
+    dist/cn.wps-read-aloud-xc_1.0.29_arm64.deb
+
+银河麒麟包的内部包名为 “wps-read-aloud-xc”。UOS 包按照 UOS 应用包名习惯使用 “cn.wps-read-aloud-xc”。文件名统一采用 “包名_版本_架构.deb”。
 
 ## 安装内容
 
-- “/opt/wps-read-aloud/”：加载项、Go 服务、Sherpa-onnx 引擎和语音模型。
-- “/etc/wps-read-aloud/config.yaml”：本地服务配置。
-- “/lib/systemd/system/wps-tts.service”：系统服务。
-- “/usr/bin/wps-read-aloud-register”：WPS 加载项注册脚本。
-- “/usr/share/doc/wps-read-aloud-xc/”：发布说明、验收测试、第三方许可证和源码获取说明。
-- “/var/log/wps-read-aloud-install.log”：安装日志。
+银河麒麟包：
+
+- 程序目录：“/opt/wps-read-aloud”
+- 配置文件：“/etc/wps-read-aloud/config.yaml”
+- 说明和许可证：“/usr/share/doc/wps-read-aloud-xc”
+
+UOS 包：
+
+- 程序目录：“/opt/apps/cn.wps-read-aloud-xc/files”
+- 配置文件：“/opt/apps/cn.wps-read-aloud-xc/files/config.yaml”
+- 说明和许可证：“/opt/apps/cn.wps-read-aloud-xc/files/doc”
+
+两个 Linux 包共同安装：
+
+- 系统服务：“/lib/systemd/system/wps-tts.service”
+- WPS 加载项注册脚本：“/usr/bin/wps-read-aloud-register”
+- 安装日志：“/var/log/wps-read-aloud-install.log”
 
 ## 构建命令
 
-    python3 packaging/build_all.py --target kylin-arm64
+列出全部目标：
 
-多平台入口由 “packaging/build_all.py” 统一管理。需要直接调用 Debian 打包脚本时，可以通过 “DISTRO” 和 “ARCH” 环境变量指定目标系统和架构。
+    python3 packaging/build_all.py --list
+
+构建全部目标：
+
+    python3 packaging/build_all.py
+
+按需构建单个 Linux 目标时，使用 “--list” 输出的目标编号：
+
+    python3 packaging/build_all.py --target kylin-amd64
+    python3 packaging/build_all.py --target kylin-arm64
+    python3 packaging/build_all.py --target uos-amd64
+    python3 packaging/build_all.py --target uos-arm64
 
 ## 升级兼容
 
-当前包名从旧版 “wps-read-aloud-zhangjingyao” 调整为 “wps-read-aloud-xc”。控制文件包含：
+当前包名从旧版 “wps-read-aloud-zhangjingyao” 调整为 “wps-read-aloud-xc”。UOS 包和银河麒麟包之间也互相声明冲突和替换，避免同一台机器同时安装两个会注册同名 WPS 加载项、同名 systemd 服务和同一端口服务的包。
 
-    Conflicts: wps-read-aloud-zhangjingyao
-    Replaces: wps-read-aloud-zhangjingyao
-
-安装脚本同时识别旧版和新版所有权标记，避免从旧版本升级时误判 “/opt/wps-read-aloud” 为外部目录。
-
-## 安装命令
-
-    sudo dpkg -i dist/wps-read-aloud-xc_1.0.28_kylin_arm64.deb
-
-如果 WPS 已经打开，请安装完成后重启 WPS。
-
-
-
-
+安装脚本同时识别旧版和新版所有权标记，避免从旧版本升级时误判项目目录为外部目录。

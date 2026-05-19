@@ -88,22 +88,37 @@ def check_linux_package(target: dict, artifact: Path) -> None:
     if target["distro"] == "uos" and "UOS" not in control:
         fail(f"missing UOS description in control: {artifact.name}")
 
+    app_root = "opt/wps-read-aloud"
+    config_path = "etc/wps-read-aloud/config.yaml"
+    package_name = "wps-read-aloud-xc"
+    if target["distro"] == "uos":
+        app_root = "opt/apps/cn.wps-read-aloud-xc/files"
+        config_path = f"{app_root}/config.yaml"
+        package_name = "cn.wps-read-aloud-xc"
+        if not artifact.name.startswith("cn."):
+            fail(f"UOS package name must start with cn.: {artifact.name}")
+    elif artifact.name.startswith("cn."):
+        fail(f"Kylin package name must not use cn. prefix: {artifact.name}")
     required = {
-        "opt/wps-read-aloud/addin/assets/app.js",
-        "opt/wps-read-aloud/daemon/wps-tts-daemon",
-        "opt/wps-read-aloud/engines/sherpa-onnx/sherpa-onnx-offline-tts",
-        "opt/wps-read-aloud/voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
-        "opt/wps-read-aloud/version.json",
-        "etc/wps-read-aloud/config.yaml",
+        f"{app_root}/addin/assets/app.js",
+        f"{app_root}/daemon/wps-tts-daemon",
+        f"{app_root}/engines/sherpa-onnx/sherpa-onnx-offline-tts",
+        f"{app_root}/voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
+        f"{app_root}/version.json",
+        config_path,
         "lib/systemd/system/wps-tts.service",
         "usr/bin/wps-read-aloud-register",
     }
     missing = sorted(required - data_names)
     if missing:
         fail(f"missing Linux payload file in {artifact.name}: {missing[0]}")
-    version = json.loads(data_tar.extractfile("opt/wps-read-aloud/version.json").read().decode("utf-8"))
+    if f"Package: {package_name}" not in control:
+        fail(f"wrong deb package name in control: {artifact.name}")
+    version = json.loads(data_tar.extractfile(f"{app_root}/version.json").read().decode("utf-8"))
     if version.get("distro") != target["distro"] or version.get("architecture") != target["arch"]:
         fail(f"wrong version.json platform in {artifact.name}")
+    if version.get("package") != package_name:
+        fail(f"wrong version.json package name in {artifact.name}")
     if any(name.endswith(".exe") for name in data_names):
         fail(f"Windows executable leaked into Linux package: {artifact.name}")
     check_no_forbidden(data_names, artifact)

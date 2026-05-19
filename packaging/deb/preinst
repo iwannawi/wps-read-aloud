@@ -6,8 +6,8 @@ mkdir -p /var/log
 exec > >(tee -a "${LOG_FILE}") 2>&1
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] preinst $*"
 
-APP_DIR="/opt/wps-read-aloud"
-CONFIG_DIR="/etc/wps-read-aloud"
+APP_DIR="@APP_ROOT@"
+CONFIG_DIR="@CONFIG_DIR@"
 SERVICE_FILE="/lib/systemd/system/wps-tts.service"
 REGISTER_BIN="/usr/bin/wps-read-aloud-register"
 MARKER="${APP_DIR}/.wps-read-aloud-xc"
@@ -39,7 +39,7 @@ if is_upgrade_or_reinstall "${1:-}"; then
     exit 1
   fi
 
-  if [[ -e "${SERVICE_FILE}" ]] && ! grep -q "/opt/wps-read-aloud/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null; then
+  if [[ -e "${SERVICE_FILE}" ]] && ! grep -q "${APP_DIR}/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null && ! grep -q "/opt/wps-read-aloud/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null; then
     echo "安装已停止：${SERVICE_FILE} 已存在，且不是本项目的服务文件。"
     echo "请先确认该服务来源，避免覆盖其他软件。"
     exit 1
@@ -62,7 +62,7 @@ if is_upgrade_or_reinstall "${1:-}"; then
       js_dir="${home}/.local/share/Kingsoft/wps/jsaddons"
       for file in "${js_dir}/publish.xml" "${js_dir}/jsplugins.xml"; do
         if [[ -f "${file}" ]] && grep -q 'name="wps-read-aloud"' "${file}"; then
-          if ! grep -q '127.0.0.1:19860' "${file}" && ! grep -q '/opt/wps-read-aloud' "${file}" && ! grep -q 'jsaddons/wps-read-aloud_' "${file}"; then
+          if ! grep -q '127.0.0.1:19860' "${file}" && ! grep -q "${APP_DIR}" "${file}" && ! grep -q '/opt/wps-read-aloud' "${file}" && ! grep -q 'jsaddons/wps-read-aloud_' "${file}"; then
             echo "安装已停止：用户 ${name} 的 WPS 加载项配置中已有同名 wps-read-aloud，但来源不是本项目。"
             echo "文件：${file}"
             echo "请先确认该加载项来源，避免覆盖其他插件。"

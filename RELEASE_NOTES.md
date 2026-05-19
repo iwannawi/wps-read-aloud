@@ -2,18 +2,21 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-xc
-Debian 包名：wps-read-aloud-xc
-版本：1.0.28
-架构：arm64
-适用操作系统：ARM64 麒麟操作系统
+Debian 包名：银河麒麟为 “wps-read-aloud-xc”，UOS 为 “cn.wps-read-aloud-xc”
+版本：1.0.29
+架构：Windows x86、Linux amd64、Linux arm64
+适用操作系统：Windows x86、银河麒麟 x64/ARM64、UOS x64/ARM64
 适用办公软件：WPS Office 2023 for Linux / WPS Office 2019 for Linux
 开发者：Zhang Jingyao
-发布时间：20260518
+发布时间：20260519
 
 ## 本次变更
 
 - 项目改造为同一套源码、多目标安装包结构，新增 Windows x86 exe 安装程序、银河麒麟 amd64、银河麒麟 arm64、UOS amd64、UOS arm64 五类安装包矩阵。
-- Linux deb 打包脚本新增 “DISTRO” 和 “ARCH” 目标参数，安装包文件名增加系统分类，例如 “kylin_arm64” 或 “uos_amd64”。
+- Linux deb 打包脚本按目标系统和架构生成不同包；Debian 文件名统一为 “包名_版本_架构.deb”，UOS 包名使用 “cn.wps-read-aloud-xc”，银河麒麟包名使用 “wps-read-aloud-xc”。
+- UOS 安装路径调整为 “/opt/apps/cn.wps-read-aloud-xc/files”，符合 UOS 应用目录习惯；银河麒麟继续使用 “/opt/wps-read-aloud” 和 “/etc/wps-read-aloud/config.yaml”。
+- 守护进程新增运行时根目录环境变量支持，systemd 服务会按目标系统传入对应安装目录，避免 UOS 包安装后仍访问麒麟路径。
+- Windows 安装包默认改为当前用户安装，路径为 “%LOCALAPPDATA%\Programs\WPS Read Aloud XC”，安装日志写入 “%LOCALAPPDATA%\WPSReadAloudXC\Logs”，避免无管理员权限时写入 “C:\Program Files (x86)” 失败。
 - 新增 “resources/runtime” 运行时资源目录规范，按系统和架构放置 sherpa-onnx、ONNX Runtime 等原生二进制依赖。
 - 正式构建不再从旧版 “engines” 目录复制运行时资源，避免把目标环境不需要的库和 Piper、eSpeak NG 等已弃用资源带入安装包。
 - 新增 Windows 安装包骨架，包含安装、卸载、WPS 加载项注册和登录任务启动本地朗读服务的脚本。实际生成 Windows 安装包前，需要补齐 Windows x86 版 daemon 和 sherpa-onnx 运行时资源。
@@ -32,14 +35,15 @@ Debian 包名：wps-read-aloud-xc
 - 朗读语速调整为 4 个选项：“0.75x”、“1x”、“1.2x”、“1.5x”，默认语速改为 “1.2x”。
 - 朗读启动等待弹窗文案改为“朗读服务正在启动，请耐心等待...”，并适当增大提示字号。
 - 文本预处理保留单句一次语音合成，不会因逗号、冒号等语义标点拆成多个 wav；语义标点会保留文本级停顿提示，双引号、单引号、书名号、括号等成对符号不额外增加停顿。
-- 服务版本号从 Go 编译常量解耦，改为运行时读取 “/opt/wps-read-aloud/version.json”；以后仅修改前端、图标、文档或发布信息时，可以复用现有 daemon 二进制重新打包，不必重新编译 Go 服务。
+- 服务版本号从 Go 编译常量解耦，改为运行时读取安装目录中的 “version.json”；以后仅修改前端、图标、文档或发布信息时，可以复用现有 daemon 二进制重新打包，不必重新编译 Go 服务。
 - 打包脚本会自动写入 “version.json”，并在 “dist/wps-tts-daemon” 不存在时从最近一个已生成的 “.deb” 中复用 daemon 二进制，减少前端小改版的构建步骤。
 - GitHub 推送和 Release 发布脚本改为长期复用脚本，优先读取 “gh auth token”，其次读取本机 Git Credential Manager，并会校验 token 有效性；日志不会输出 token 或 Basic 认证头。
 - 文档朗读选项卡的 6 个顶层控件继续使用 “size="large"”，并恢复 WPS JS 加载项更稳定的 “getImage="ribbon.GetImage"” 图标回调方式，避免静态 “image="..."” 在 WPS Linux 中不显示。
 - 选项卡图标改为通过加载项静态资源路径返回，减少 Base64 和 data URI 在 WPS Linux Ribbon 中的兼容性风险。
 - 朗读启动等待弹窗改为双层居中布局，去掉 compact 模式下的最小宽度限制，修复提示文字在小窗内偏右的问题。
 - 朗读启动等待弹窗隐藏标题行，只保留正文提示，避免重复表达。
-- 软件包文件名统一为小写并带系统分类，例如 “wps-read-aloud-xc_1.0.28_kylin_arm64.deb”，与 Debian 内部包名 “wps-read-aloud-xc” 保持一致。
+- 删除旧版单平台脚本和单平台部署说明，统一使用多平台构建入口和多平台交付文档。
+- 软件包文件名统一为 Debian 习惯格式，例如 “wps-read-aloud-xc_1.0.29_arm64.deb” 和 “cn.wps-read-aloud-xc_1.0.29_arm64.deb”。
 - 朗读启动等待弹窗改为更小的 compact 内容布局，降低标题、正文和内边距尺寸，并禁用 compact 弹窗内部滚动，避免小窗出现滚动条。
 - 清理发布目录中的旧安装包、临时推送脚本和可能包含敏感认证输出的日志，避免交付目录混入无关文件。
 - 开始朗读时的小提示窗改为紧凑布局，不再依赖固定倒计时自动关闭；进入实际播放后由加载项主动关闭。
@@ -52,7 +56,7 @@ Debian 包名：wps-read-aloud-xc
 
 ## 安装
 
-    sudo dpkg -i wps-read-aloud-xc_1.0.28_kylin_arm64.deb
+    sudo dpkg -i wps-read-aloud-xc_1.0.29_arm64.deb
 
 如果 WPS 已经打开，请安装完成后重启 WPS。
 

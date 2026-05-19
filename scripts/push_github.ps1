@@ -142,6 +142,9 @@ function Get-GitHubToken {
 
 function Invoke-Git($DisplayArgs, $ActualArgs, $Token) {
   Write-Log ("git " + ($DisplayArgs -join " "))
+  $AuthBytes = [Text.Encoding]::ASCII.GetBytes("x-access-token:$Token")
+  $AuthHeader = "Authorization: Basic " + [Convert]::ToBase64String($AuthBytes)
+  $ActualArgsWithAuth = @("-c", "credential.helper=", "-c", "http.extraHeader=$AuthHeader") + $ActualArgs
   $AskPass = Join-Path $env:TEMP "wps-read-aloud-git-askpass.cmd"
   $OldAskPass = $env:GIT_ASKPASS
   $OldTerminalPrompt = $env:GIT_TERMINAL_PROMPT
@@ -161,7 +164,7 @@ if %errorlevel%==0 (
     $env:GIT_TERMINAL_PROMPT = "0"
     $env:WPS_READ_ALOUD_GIT_USERNAME = "x-access-token"
     $env:WPS_READ_ALOUD_GIT_TOKEN = $Token
-    & git @ActualArgs 2>&1 | Tee-Object -FilePath $Log -Append
+    & git @ActualArgsWithAuth 2>&1 | Tee-Object -FilePath $Log -Append
     $ExitCode = $LASTEXITCODE
     Write-Log "exit code: $ExitCode"
     if ($ExitCode -ne 0) {

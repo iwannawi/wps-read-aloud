@@ -1,9 +1,9 @@
 ﻿param(
-  [string]$InstallDir = "$env:ProgramFiles\WPS Read Aloud XC"
+  [string]$InstallDir = "$env:LOCALAPPDATA\Programs\WPS Read Aloud XC"
 )
 
 $ErrorActionPreference = "Stop"
-$LogDir = Join-Path $env:ProgramData "WPSReadAloudXC"
+$LogDir = Join-Path $env:LOCALAPPDATA "WPSReadAloudXC\Logs"
 $LogFile = Join-Path $LogDir "install.log"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Start-Transcript -Path $LogFile -Append | Out-Null
@@ -45,6 +45,8 @@ try {
   if (!(Test-Path $Source)) {
     throw "安装包不完整：未找到 app 目录。"
   }
+  $TaskName = "WPSReadAloudXC"
+  Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   Copy-Item -Path (Join-Path $Source "*") -Destination $InstallDir -Recurse -Force
 
@@ -53,7 +55,6 @@ try {
     throw "安装包不完整：未找到 wps-tts-daemon.exe。"
   }
 
-  $TaskName = "WPSReadAloudXC"
   $Action = New-ScheduledTaskAction -Execute $Daemon -Argument "-config `"$InstallDir\config.yaml`"" -WorkingDirectory $InstallDir
   $Trigger = New-ScheduledTaskTrigger -AtLogOn
   $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel LeastPrivilege

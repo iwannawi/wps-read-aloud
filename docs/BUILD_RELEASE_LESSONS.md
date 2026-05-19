@@ -6,6 +6,7 @@
 
 - 不使用 Windows Store 的 “python” 命令；它可能只是商店别名。需要运行项目脚本时使用 Codex 工作区内置 Python：
   “C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe”
+- 2026-05-19 再次验证：直接运行 “python packaging\sync_addin_web.py” 会触发 Windows Store Python 提示，仍应使用 Codex 工作区内置 Python。
 - 需要执行 JavaScript 语法检查时使用 Codex 工作区内置 Node：
   “C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe”
 - 在 PowerShell 里用 “powershell.exe -Command” 检查脚本语法时，不要把含有 “$null” 的命令放在外层双引号里；外层 PowerShell 会提前展开变量，导致出现 “=[scriptblock]::Create” 这类误报。推荐直接使用 “[scriptblock]::Create(... ) | Out-Null”。
@@ -15,14 +16,16 @@
   “GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go test -c -o C:\tmp\wps-tts-daemon.test .\cmd\wps-tts-daemon”
 - Windows 上构建 Linux ARM64 daemon 时使用 “-buildvcs=false”，避免 VCS 元信息写入在受限环境下失败。
 - Go 服务必须在 “daemon” 目录内构建。不要在仓库根目录直接运行 “go build .\daemon\cmd\wps-tts-daemon”，否则会出现 “cannot find main module, but found .git/config”。
+- 在 “daemon” 目录内运行 Go 命令时，PowerShell 下不要写 “tools\go\bin\go.exe”；这会被当作模块名解析。应使用相对父目录形式 “..\tools\go\bin\go.exe” 或完整路径。
 - 本机已验证的 Linux ARM64 daemon 构建方式是：先进入 “daemon” 目录，再执行 “GOOS=linux GOARCH=arm64 CGO_ENABLED=0 GOCACHE=C:\tmp\go-build-cache ..\tools\go\bin\go.exe build -buildvcs=false -o ..\dist\wps-tts-daemon-linux-arm64 .\cmd\wps-tts-daemon”。
 
 ## 多平台安装包
 
-- 多平台入口脚本是 “packaging\build_all.py”。使用 “--list” 查看五类安装包目标，使用 “--target kylin-arm64” 构建单个目标。
-- 当前仓库已经具备五类安装包的目录、配置和脚本框架；除“麒麟 arm64”外，其他目标还需要补齐对应系统和架构的 Sherpa ONNX 运行文件、模型资源和 daemon 二进制后才能生成正式安装包。
+- 多平台入口脚本是 “packaging\build_all.py”。使用 “--list” 查看五类安装包目标；按需调试单个目标时使用对应目标编号，例如 “windows-x86”、“kylin-amd64”、“kylin-arm64”、“uos-amd64” 或 “uos-arm64”。
+- 当前仓库已经具备五类安装包的目录、配置和脚本框架；正式发布前必须确认每个目标的 Sherpa ONNX 运行文件、模型资源和 daemon 二进制都已准备齐全。
 - Windows 安装脚本不得覆盖整个 WPS 加载项配置文件。安装和卸载时只增删 “wps-read-aloud” 条目，并对原配置文件生成带时间戳的备份。
-- 正式发布必须运行 “python packaging/build_all.py” 构建五个目标，并运行 “python packaging/verify_release_artifacts.py” 检查五个安装包。只构建 “--target kylin-arm64” 只能用于本地调试，不能用于发布 Release。
+- Windows 安装包默认不要写入 “C:\Program Files (x86)”。普通用户无管理员权限时会报 “New-Item：访问被拒绝”。默认安装路径应使用 “%LOCALAPPDATA%\Programs\WPS Read Aloud XC”，日志使用 “%LOCALAPPDATA%\WPSReadAloudXC\Logs”。
+- 正式发布必须运行 “python packaging/build_all.py” 构建五个目标，并运行 “python packaging/verify_release_artifacts.py” 检查五个安装包。只构建单个目标只能用于本地调试，不能用于发布 Release。
 - 发布脚本 “scripts\publish_github_release.ps1” 必须在上传前执行五包完整性检查；缺少任意一个安装包或 SHA256 文件时立即失败。
 - 安装包资源要按平台最小化：Linux 包不得包含 Windows exe、Piper、eSpeak NG；Windows 包不得包含 Linux systemd 服务、Linux so、Piper、eSpeak NG。
 
@@ -42,10 +45,12 @@
 
 - “dist/” 最终只保留本版本 “.deb” 和 “.sha256”。临时检查脚本、发布日志、旧安装包、可能包含认证信息的输出文件都应清理。
 - “dist/wps-tts-daemon” 只是打包时复用或缓存的 daemon 二进制，不是最终交付物；发布前应清理，避免用户误用。
-- 检查 Debian 包内容时，当前构建脚本生成的 tar 成员路径不带 “./” 前缀。控制文件路径是 “control”，数据文件示例是 “opt/wps-read-aloud/version.json”。检查脚本不要硬编码 “./control”。
+- 检查 Debian 包内容时，当前构建脚本生成的 tar 成员路径不带 “./” 前缀。控制文件路径是 “control”；银河麒麟数据文件示例是 “opt/wps-read-aloud/version.json”，UOS 数据文件示例是 “opt/apps/cn.wps-read-aloud-xc/files/version.json”。检查脚本不要硬编码 “./control”。
+- 如果刚运行过 Windows 安装包，再次构建可能因为安装器窗口仍在运行而无法覆盖 “dist” 下的 exe，错误表现为 “PermissionError: WinError 5”。先确认安装器窗口关闭，或检查并结束对应安装器进程后再重建。
 
 ## GitHub 推送与 Release
 
 - 使用长期复用脚本 “scripts/push_github.ps1” 和 “scripts/publish_github_release.ps1”，不再为每个版本生成一次性脚本。
 - 推送和发布优先使用本机 Git Credential Manager。脚本不得输出 token、Basic 认证头或其他敏感凭据。
+- 2026-05-19 验证：如果 Git Credential Manager 里保存的 GitHub HTTPS 凭据失效，即使 “gh auth status” 正常，直接 “git push origin main” 仍会报 “Invalid username or token”。替代方案是优先读取 “gh auth token”，通过临时 “http.extraHeader” 注入本次 Git 命令，同时设置 “credential.helper=” 禁用失效凭据干扰，并避免在日志里打印认证头。
 - 每次发布 GitHub Release 时，Release 内容要包含版本号、发布日期、主要变更、安装包文件名和 SHA256。
