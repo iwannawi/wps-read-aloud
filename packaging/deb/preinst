@@ -45,7 +45,7 @@ if is_upgrade_or_reinstall "${1:-}"; then
     exit 1
   fi
 
-  if [[ -e "${REGISTER_BIN}" ]] && ! grep -q "ADDIN_NAME=\"wps-read-aloud\"" "${REGISTER_BIN}" 2>/dev/null; then
+  if [[ -e "${REGISTER_BIN}" ]] && ! grep -q 'ADDIN_LEGACY_NAME="wps-read-aloud"' "${REGISTER_BIN}" 2>/dev/null && ! grep -q 'ADDIN_NAME="wps-read-aloud"' "${REGISTER_BIN}" 2>/dev/null; then
     echo "安装已停止：${REGISTER_BIN} 已存在，且不是本项目脚本。"
     echo "请先确认该文件来源，避免覆盖其他软件。"
     exit 1
@@ -61,9 +61,9 @@ if is_upgrade_or_reinstall "${1:-}"; then
     if [[ "${uid}" -ge 1000 && -d "${home}" && "${shell}" != */nologin && "${shell}" != */false ]]; then
       js_dir="${home}/.local/share/Kingsoft/wps/jsaddons"
       for file in "${js_dir}/publish.xml" "${js_dir}/jsplugins.xml"; do
-        if [[ -f "${file}" ]] && grep -q 'name="wps-read-aloud"' "${file}"; then
+        if [[ -f "${file}" ]] && (grep -q 'name="wps-read-aloud"' "${file}" || grep -q 'name="文档朗读助手"' "${file}"); then
           if ! grep -q '127.0.0.1:19860' "${file}" && ! grep -q "${APP_DIR}" "${file}" && ! grep -q '/opt/wps-read-aloud' "${file}" && ! grep -q 'jsaddons/wps-read-aloud_' "${file}"; then
-            echo "安装已停止：用户 ${name} 的 WPS 加载项配置中已有同名 wps-read-aloud，但来源不是本项目。"
+            echo "安装已停止：用户 ${name} 的 WPS 加载项配置中已有同名文档朗读助手，但来源不是本项目。"
             echo "文件：${file}"
             echo "请先确认该加载项来源，避免覆盖其他插件。"
             exit 1

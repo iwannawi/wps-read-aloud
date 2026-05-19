@@ -1,5 +1,6 @@
 ﻿param(
-  [string]$InstallDir = "$env:LOCALAPPDATA\Programs\WPS Read Aloud Comate"
+  [string]$InstallDir = "$env:LOCALAPPDATA\Programs\WPS Read Aloud Comate",
+  [string]$ProgressFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,6 +8,37 @@ $LogDir = Join-Path $env:LOCALAPPDATA "WPSReadAloudComate\Logs"
 $LogFile = Join-Path $LogDir "install.log"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Start-Transcript -Path $LogFile -Append | Out-Null
+$AddinInternalName = "wps-read-aloud"
+$AddinDisplayName = "文档朗读助手"
+$AddinDescription = "WPS文档朗读助手加载项申请访问本机语音合成服务"
+
+function Write-InstallProgress {
+  param(
+    [int]$Percent,
+    [string]$Action,
+    [string]$Detail = ""
+  )
+  $Percent = [Math]::Max(0, [Math]::Min(100, $Percent))
+  Write-Host "$Percent% $Action $Detail"
+  if ([string]::IsNullOrWhiteSpace($ProgressFile)) {
+    return
+  }
+  try {
+    $ProgressDir = Split-Path -Parent $ProgressFile
+    if ($ProgressDir) {
+      New-Item -ItemType Directory -Force -Path $ProgressDir | Out-Null
+    }
+    $Payload = [pscustomobject]@{
+      percent = $Percent
+      action = $Action
+      detail = $Detail
+      time = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    } | ConvertTo-Json -Compress
+    Add-Content -Path $ProgressFile -Value $Payload -Encoding UTF8
+  }
+  catch {
+  }
+}
 
 function Backup-ConfigFile {
   param([string]$Path)
@@ -19,14 +51,18 @@ function Backup-ConfigFile {
 function Set-WpsPluginEntry {
   param(
     [string]$Path,
-    [string]$Entry
+    [string]$Entry,
+    [string[]]$Names
   )
 
   Backup-ConfigFile -Path $Path
   if (Test-Path $Path) {
     $Content = Get-Content -Raw -Path $Path -Encoding UTF8
-    $Content = [regex]::Replace($Content, '(?is)\s*<jspluginonline\b[^>]*name="wps-read-aloud"[^>]*/>', '')
-    $Content = [regex]::Replace($Content, '(?is)\s*<jsplugin\b[^>]*name="wps-read-aloud"[\s\S]*?</jsplugin>', '')
+    foreach ($Name in $Names) {
+      $Escaped = [regex]::Escape($Name)
+      $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
+      $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[\s\S]*?</jsplugin>", "")
+    }
     if ($Content -match '</jsplugins>') {
       $Content = $Content -replace '(?is)</jsplugins>', "  $Entry`r`n</jsplugins>"
     }
@@ -38,6 +74,99 @@ function Set-WpsPluginEntry {
     $Content = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<jsplugins>`r`n  $Entry`r`n</jsplugins>`r`n"
   }
   Set-Content -Path $Path -Value $Content -Encoding UTF8
+}
+
+function Remove-WpsPluginEntry {
+  param(
+    [string]$Path,
+    [string[]]$Names
+  )
+  if (!(Test-Path $Path)) {
+    return
+  }
+  Backup-ConfigFile -Path $Path
+  $Content = Get-Content -Raw -Path $Path -Encoding UTF8
+  foreach ($Name in $Names) {
+    $Escaped = [regex]::Escape($Name)
+    $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
+    $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[\s\S]*?</jsplugin>", "")
+  }
+  Set-Content -Path $Path -Value $Content -Encoding UTF8
+}
+
+function Remove-WpsAuthAddinEntry {
+  param(
+    [string]$Path,
+    [string]$Name
+  )
+  if (!(Test-Path $Path)) {
+    return
+  }
+  try {
+    Backup-ConfigFile -Path $Path
+    $Data = Get-Content -Raw -Path $Path -Encoding UTF8 | ConvertFrom-Json
+    if (!$Data.wps) {
+      return
+    }
+    $RemoveKeys = @()
+    foreach ($Property in $Data.wps.PSObject.Properties) {
+      if ($Property.Name -eq "namelist") {
+        continue
+      }
+      if ($Property.Value.name -eq $Name) {
+        $RemoveKeys += $Property.Name
+      }
+    }
+    foreach ($Key in $RemoveKeys) {
+      $Data.wps.PSObject.Properties.Remove($Key)
+    }
+    if ($RemoveKeys.Count -gt 0 -and $Data.wps.PSObject.Properties.Name -contains "namelist") {
+      $NameList = [string]$Data.wps.namelist
+      foreach ($Key in $RemoveKeys) {
+        $NameList = $NameList.Replace($Key, "")
+      }
+      $Data.wps.namelist = $NameList.Trim(" ,;")
+    }
+    $Data | ConvertTo-Json -Depth 10 | Set-Content -Path $Path -Encoding UTF8
+  }
+  catch {
+    Write-Host "旧版 WPS 加载项授权缓存清理失败，已跳过：$($_.Exception.Message)"
+  }
+}
+
+function Clear-WpsJsAddinBlockHost {
+  param([string]$JsDir)
+  $BlockFile = Join-Path $JsDir "jsaddinblockhost.ini"
+  if (!(Test-Path $BlockFile)) {
+    return
+  }
+  try {
+    Backup-ConfigFile -Path $BlockFile
+    Remove-Item -LiteralPath $BlockFile -Force
+    Write-Host "已清理 WPS JS 加载项阻止缓存：$BlockFile"
+  }
+  catch {
+    Write-Host "WPS JS 加载项阻止缓存清理失败，已跳过：$($_.Exception.Message)"
+  }
+}
+
+function Stop-InstalledDaemonProcess {
+  param([string]$Root)
+  if ([string]::IsNullOrWhiteSpace($Root) -or !(Test-Path $Root)) {
+    return
+  }
+  $FullRoot = [System.IO.Path]::GetFullPath($Root)
+  Get-Process -Name "wps-tts-daemon" -ErrorAction SilentlyContinue |
+    ForEach-Object {
+      try {
+        $Path = $_.Path
+        if ($Path -and [System.IO.Path]::GetFullPath($Path).StartsWith($FullRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+      }
+      catch {
+      }
+    }
 }
 
 function Get-PeArchitecture {
@@ -305,7 +434,7 @@ catch {
   `$Healthy = `$false
 }
 if (!`$Healthy) {
-  Start-Process -FilePath `$Daemon -ArgumentList @("-config", "`"`$Config`"") -WorkingDirectory `$Root -WindowStyle Hidden
+  Start-Process -FilePath `$Daemon -ArgumentList @("-config", `$Config) -WorkingDirectory `$Root -WindowStyle Hidden
 }
 "@
   Set-Content -Path $Launcher -Value $Content -Encoding UTF8
@@ -326,11 +455,36 @@ function Register-DaemonStartup {
   return $PowerShell
 }
 
+function Test-LocalServiceHealthy {
+  try {
+    $Response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:19860/health" -TimeoutSec 2
+    return ($Response.StatusCode -ge 200 -and $Response.StatusCode -lt 500)
+  }
+  catch {
+    return $false
+  }
+}
+
+function Wait-LocalServiceHealthy {
+  param([int]$TimeoutSeconds = 15)
+
+  $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $Deadline) {
+    if (Test-LocalServiceHealthy) {
+      return $true
+    }
+    Start-Sleep -Milliseconds 500
+  }
+  return $false
+}
+
 try {
+  Write-InstallProgress -Percent 3 -Action "初始化安装" -Detail "正在准备安装环境"
   $Source = Join-Path $PSScriptRoot "app"
   if (!(Test-Path $Source)) {
     throw "安装包不完整：未找到 app 目录。"
   }
+  Write-InstallProgress -Percent 10 -Action "检测 WPS" -Detail "正在查找本机 WPS Office"
   $VersionInfo = Get-Content -Raw -Path (Join-Path $Source "version.json") | ConvertFrom-Json
   $PackageArch = $VersionInfo.architecture
   if ($PackageArch -eq "386") {
@@ -341,6 +495,7 @@ try {
   Write-Host "WPS 位数：$($WpsInfo.Architecture)；WPS 版本：$($WpsInfo.VersionText)"
   Write-Host "本安装包使用独立本地朗读服务，不注入 WPS 进程，可同时支持 32 位和 64 位 WPS。"
 
+  Write-InstallProgress -Percent 20 -Action "清理旧版本" -Detail "正在停止旧版朗读服务"
   $TaskName = "WPSReadAloudComate"
   try {
     Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -349,6 +504,8 @@ try {
   catch {
     Write-Host "旧版计划任务清理被系统拒绝，已跳过；新版安装使用当前用户 Run 自启动。"
   }
+  Stop-InstalledDaemonProcess -Root $InstallDir
+  Write-InstallProgress -Percent 35 -Action "复制程序文件" -Detail "安装路径：$InstallDir"
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   Copy-Item -Path (Join-Path $Source "*") -Destination $InstallDir -Recurse -Force
 
@@ -358,10 +515,17 @@ try {
   }
 
   $Launcher = New-DaemonLauncher -Root $InstallDir -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
-  $PowerShell = Register-DaemonStartup -Launcher $Launcher
-  Start-Process -FilePath $PowerShell -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", $Launcher) -WindowStyle Hidden
+  Write-InstallProgress -Percent 50 -Action "注册启动项" -Detail "正在写入当前用户自启动配置"
+  Register-DaemonStartup -Launcher $Launcher | Out-Null
+  Write-InstallProgress -Percent 58 -Action "启动朗读服务" -Detail "正在启动本机语音合成服务"
+  Start-Process -FilePath $Daemon -ArgumentList @("-config", (Join-Path $InstallDir "config.yaml")) -WorkingDirectory $InstallDir -WindowStyle Hidden
   Write-Host "已注册当前用户登录自启动：HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WPSReadAloudComate"
+  if (!(Wait-LocalServiceHealthy -TimeoutSeconds 60)) {
+    throw "本地朗读服务未能启动，请查看安装目录中的 start-daemon.ps1 和安装日志。"
+  }
+  Write-Host "本地朗读服务已启动：http://127.0.0.1:19860/health"
 
+  Write-InstallProgress -Percent 70 -Action "注册 WPS 加载项" -Detail "正在写入 WPS 加载项配置"
   $JsDir = Join-Path $env:APPDATA "Kingsoft\wps\jsaddons"
   New-Item -ItemType Directory -Force -Path $JsDir | Out-Null
   $AddinVersion = $VersionInfo.version
@@ -375,17 +539,27 @@ try {
   $LocalUrl = "http://127.0.0.1:19860/addin/index.html"
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
-  $OnlineEntry = "<jspluginonline name=`"wps-read-aloud`" type=`"wps`" enable=`"enable_dev`" install=`"$LocalUrl`" url=`"$LocalUrl`" debug=`"`"/>"
+  $KnownNames = @($AddinInternalName, $AddinDisplayName)
+  $OnlineEntry = @"
+<jspluginonline name="$AddinDisplayName" type="wps" enable="enable_dev" install="$LocalUrl" url="$LocalUrl" debug="" desc="$AddinDescription"/>
+"@
   $LocalEntry = @"
-<jsplugin name="wps-read-aloud" type="wps" url="$FileUrl" version="$AddinVersion" desc="WPS 文档朗读助手. Developer: Zhang Jingyao.">
+<jsplugin name="$AddinDisplayName" type="wps" url="$FileUrl" version="$AddinVersion" desc="$AddinDescription">
     <ribbon file="$Ribbon"/>
   </jsplugin>
 "@
-  Set-WpsPluginEntry -Path $PublishXml -Entry $OnlineEntry
-  Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry
+  Set-WpsPluginEntry -Path $PublishXml -Entry $OnlineEntry -Names $KnownNames
+  Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry -Names $KnownNames
+  Remove-WpsAuthAddinEntry -Path (Join-Path $JsDir "authaddin.json") -Name $AddinInternalName
+  Clear-WpsJsAddinBlockHost -JsDir $JsDir
 
+  Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请彻底退出并重新打开 WPS"
   Write-Host "WPS 文档朗读助手安装完成。若 WPS 已打开，请重启 WPS。"
   Write-Host "安装日志：$LogFile"
+}
+catch {
+  Write-InstallProgress -Percent 100 -Action "安装失败" -Detail $_.Exception.Message
+  throw
 }
 finally {
   Stop-Transcript | Out-Null

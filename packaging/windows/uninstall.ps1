@@ -12,8 +12,11 @@ function Remove-WpsPluginEntry {
   $Stamp = Get-Date -Format "yyyyMMddHHmmss"
   Copy-Item -LiteralPath $Path -Destination "$Path.bak.$Stamp" -Force
   $Content = Get-Content -Raw -Path $Path -Encoding UTF8
-  $Content = [regex]::Replace($Content, '(?is)\s*<jspluginonline\b[^>]*name="wps-read-aloud"[^>]*/>', '')
-  $Content = [regex]::Replace($Content, '(?is)\s*<jsplugin\b[^>]*name="wps-read-aloud"[\s\S]*?</jsplugin>', '')
+  foreach ($Name in @("wps-read-aloud", "文档朗读助手")) {
+    $Escaped = [regex]::Escape($Name)
+    $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
+    $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[\s\S]*?</jsplugin>", "")
+  }
   Set-Content -Path $Path -Value $Content -Encoding UTF8
 }
 

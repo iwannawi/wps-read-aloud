@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = os.environ.get("VERSION", "1.0.32")
+VERSION = os.environ.get("VERSION", "1.0.34")
 RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260519")
 WINDOWS_ARCH = os.environ.get("WINDOWS_ARCH", "386")
 ARCH_LABEL = "x86" if WINDOWS_ARCH in {"386", "x86"} else WINDOWS_ARCH
@@ -144,6 +144,7 @@ def main() -> None:
     (app / "daemon").mkdir(parents=True, exist_ok=True)
     shutil.copy2(OUT / f"wps-tts-daemon-windows-{ARCH_LABEL}.exe", app / "daemon" / "wps-tts-daemon.exe")
     shutil.copy2(ROOT / "packaging" / "windows" / "install.ps1", BUILD / "install.ps1")
+    shutil.copy2(ROOT / "packaging" / "windows" / "install-ui.ps1", BUILD / "install-ui.ps1")
     shutil.copy2(ROOT / "packaging" / "windows" / "uninstall.ps1", BUILD / "uninstall.ps1")
     write_version_json(app / "version.json")
     write_windows_config(app / "config.yaml")

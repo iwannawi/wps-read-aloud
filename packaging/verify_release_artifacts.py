@@ -133,6 +133,7 @@ def check_windows_package(target: dict, artifact: Path) -> None:
         names = set(zf.namelist())
         required = {
             "install.ps1",
+            "install-ui.ps1",
             "uninstall.ps1",
             "app/addin/assets/app.js",
             "app/config.yaml",

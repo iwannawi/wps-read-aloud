@@ -5,10 +5,10 @@
 ## Windows 本机构建
 
 - 不使用 Windows Store 的 “python” 命令；它可能只是商店别名。需要运行项目脚本时使用 Codex 工作区内置 Python：
-  “C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe”
+  “<bundled-python>”
 - 2026-05-19 再次验证：直接运行 “python packaging\sync_addin_web.py” 会触发 Windows Store Python 提示，仍应使用 Codex 工作区内置 Python。
 - 需要执行 JavaScript 语法检查时使用 Codex 工作区内置 Node：
-  “C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe”
+  “<bundled-node>”
 - 在 PowerShell 里用 “powershell.exe -Command” 检查脚本语法时，不要把含有 “$null” 的命令放在外层双引号里；外层 PowerShell 会提前展开变量，导致出现 “=[scriptblock]::Create” 这类误报。推荐直接使用 “[scriptblock]::Create(... ) | Out-Null”。
 - Windows PowerShell 5 读取无 BOM 的 UTF-8 脚本时可能按本地编码解析，中文字符串会乱码，严重时会造成脚本解析失败。Windows 安装、卸载脚本需要保存为带 BOM 的 UTF-8，并用 Windows PowerShell 5 做语法检查。
 - 在外层 PowerShell 调用 “powershell.exe -Command” 时，含 “$files”、“$f”、“$s” 的命令要放在单引号中，避免外层提前展开变量导致 “foreach( in )” 这类语法错误。
@@ -22,10 +22,18 @@
 
 - 多平台入口脚本是 “packaging\build_all.py”。使用 “--list” 查看五类安装包目标；按需调试单个目标时使用对应目标编号，例如 “windows”、“kylin-amd64”、“kylin-arm64”、“uos-amd64” 或 “uos-arm64”。
 - 当前仓库已经具备五类安装包的目录、配置和脚本框架；正式发布前必须确认每个目标的 Sherpa ONNX 运行文件、模型资源和 daemon 二进制都已准备齐全。
-- Windows 安装脚本不得覆盖整个 WPS 加载项配置文件。安装和卸载时只增删 “wps-read-aloud” 条目，并对原配置文件生成带时间戳的备份。
+- Windows 安装脚本不得覆盖整个 WPS 加载项配置文件。安装和卸载时只增删本项目当前中文名称“文档朗读助手”和旧内部名称“wps-read-aloud”对应条目，并对原配置文件生成带时间戳的备份。
 - Windows 安装包默认不要写入 “C:\Program Files (x86)”。普通用户无管理员权限时会报 “New-Item：访问被拒绝”。默认安装路径应使用 “%LOCALAPPDATA%\Programs\WPS Read Aloud Comate”，日志使用 “%LOCALAPPDATA%\WPSReadAloudComate\Logs”。
 - Windows 计划任务的 “RunLevel” 只能使用 “Limited” 或 “Highest”。不要使用 “LeastPrivilege”，否则部分系统会在安装时报参数转换失败。
 - 2026-05-19 验证：即使 “RunLevel” 改为 “Limited”，部分 Windows 环境仍可能在 “Register-ScheduledTask” 阶段报“拒绝访问”。普通用户安装包应优先使用 “HKCU\Software\Microsoft\Windows\CurrentVersion\Run” 注册当前用户自启动，并用隐藏 PowerShell 启动本地朗读服务；计划任务仅作为旧版本清理兼容项。
+- 2026-05-19 验证：生成 “start-daemon.ps1” 时，不要把 PowerShell 变量写成 “""$Config""” 这类双重引号。隐藏启动会吞掉解析错误，导致本地服务没起来，WPS 通过 “127.0.0.1:19860” 加载在线入口失败，表现为看不到加载项选项卡。生成后应使用 PowerShell Parser 对安装脚本和生成脚本文本做语法检查。
+- Windows 安装阶段不要再通过 “powershell.exe -File start-daemon.ps1” 二跳启动 daemon。实际验证中二跳启动和健康检查存在时序错位，安装器可能先判失败而 daemon 随后才启动。安装阶段直接 “Start-Process” daemon，登录自启动再使用 “start-daemon.ps1”。
+- Windows 端不要让 Ribbon UI 是否显示受本地服务启动时序影响。安装阶段必须先启动并健康检查本地服务，再写入 WPS 加载项注册；旧版授权缓存和阻止缓存需要谨慎清理。
+- 2026-05-19 复盘：仅写入 “jsplugins.xml” 本地入口在部分 Windows WPS 环境中可能不显示“文档朗读”选项卡。后续 Windows 安装应采用 “publish.xml” 在线入口加 “jsplugins.xml” 本地入口的双注册方式，同时保证本地服务已启动并通过健康检查。不要再回退到“只写本地入口”的方案。
+- 2026-05-19 复盘：WPS 授权弹窗会优先呈现加载项注册名称。注册名称应使用中文“文档朗读助手”，描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”；内部目录和包名可以继续使用英文标识，但不要作为用户授权提示的显示名称。
+- 2026-05-19 复盘：Windows PowerShell 5 解析包含中文的脚本时，必须确保脚本保存为 UTF-8 BOM；否则会按系统 ANSI 误读，造成乱码和字符串语法错误。图形安装器中的自定义函数作为表达式传参时，应写成 “(Read-LogTail)” 形式，不要写成 “Read-LogTail()”。
+- Windows 覆盖安装前必须先停止当前安装目录下正在运行的旧版 “wps-tts-daemon.exe”。否则 “Copy-Item” 会因为 exe 被占用报 “being used by another process”，导致升级安装失败。
+- Windows 安装期健康检查不要只等 10 到 15 秒。受杀毒扫描、低性能机器或首次启动影响，daemon 可能在安装器判失败后才完成启动。当前使用 60 秒等待窗口。
 - Windows 安装前必须探测 WPS 客户端：至少检查 “wps.exe” 路径、产品版本和 PE 位数。本项目不是进程内 DLL 插件，WPS JS 加载项通过 127.0.0.1 调用独立本地朗读服务，因此本地服务位数不需要和 WPS 位数一致；位数检测用于日志和故障定位，不应阻止 64 位 WPS 安装。
 - Windows x86 安装器启动 “powershell.exe” 时可能进入 32 位 PowerShell，从而漏读 64 位注册表和 “C:\Program Files”。安装器应优先调用 “%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe”，安装脚本也必须读取 “App Paths\wps.exe”、Kingsoft/WPS 注册表键、开始菜单快捷方式和 “ProgramW6432”。
 - Windows 安装器应使用 “go build -ldflags -H=windowsgui” 构建为 GUI 子系统程序，避免正常安装时弹出命令行窗口。失败和成功提示使用系统消息框。
@@ -57,4 +65,5 @@
 - 使用长期复用脚本 “scripts/push_github.ps1” 和 “scripts/publish_github_release.ps1”，不再为每个版本生成一次性脚本。
 - 推送和发布优先使用本机 Git Credential Manager。脚本不得输出 token、Basic 认证头或其他敏感凭据。
 - 2026-05-19 验证：如果 Git Credential Manager 里保存的 GitHub HTTPS 凭据失效，即使 “gh auth status” 正常，直接 “git push origin main” 仍会报 “Invalid username or token”。替代方案是优先读取 “gh auth token”，通过临时 “http.extraHeader” 注入本次 Git 命令，同时设置 “credential.helper=” 禁用失效凭据干扰，并避免在日志里打印认证头。
+- 2026-05-19 验证：如果 “scripts/publish_github_release.ps1” 通过 curl 调 GitHub REST API 返回 401 “Bad credentials”，但 “gh auth status” 正常且 GitHub CLI 可以访问仓库，不要继续反复跑 curl 路径。直接使用 “gh release create” 或 “gh release upload” 发布，GitHub CLI 会使用当前已登录账号完成 Release 操作。
 - 每次发布 GitHub Release 时，Release 内容要包含版本号、发布日期、主要变更、安装包文件名和 SHA256。

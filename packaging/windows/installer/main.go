@@ -16,29 +16,39 @@ import (
 var payloadMarker = []byte("WPS_READ_ALOUD_COMATE_PAYLOAD_ZIP_V1\n")
 
 func main() {
-	if err := run(); err != nil {
-		showMessage("WPS 文档朗读助手安装失败", friendlyInstallError(err), 0x10)
+	usedUI, err := run()
+	if err != nil {
+		if !usedUI {
+			showMessage("WPS 文档朗读助手安装失败", friendlyInstallError(err), 0x10)
+		}
 		os.Exit(1)
 	}
-	showMessage("WPS 文档朗读助手", "安装完成。若 WPS 已打开，请重启 WPS。", 0x40)
+	if !usedUI {
+		showMessage("WPS 文档朗读助手", "安装完成。若 WPS 已打开，请重启 WPS。", 0x40)
+	}
 }
 
-func run() error {
+func run() (bool, error) {
 	payload, err := readPayload()
 	if err != nil {
-		return err
+		return false, err
 	}
 	tempRoot, err := os.MkdirTemp("", "wps-read-aloud-comate-installer-*")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer os.RemoveAll(tempRoot)
 	if err := extractZip(payload, tempRoot); err != nil {
-		return err
+		return false, err
 	}
-	installer := filepath.Join(tempRoot, "install.ps1")
+	installer := filepath.Join(tempRoot, "install-ui.ps1")
+	usedUI := true
 	if _, err := os.Stat(installer); err != nil {
-		return fmt.Errorf("安装包不完整，未找到 install.ps1")
+		installer = filepath.Join(tempRoot, "install.ps1")
+		usedUI = false
+		if _, err := os.Stat(installer); err != nil {
+			return false, fmt.Errorf("安装包不完整，未找到 install.ps1")
+		}
 	}
 	cmd := exec.Command(
 		powershellPath(),
@@ -50,7 +60,7 @@ func run() error {
 	)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Dir = tempRoot
-	return cmd.Run()
+	return usedUI, cmd.Run()
 }
 
 func powershellPath() string {

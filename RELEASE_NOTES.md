@@ -3,7 +3,7 @@
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
 Debian 包名：银河麒麟为 “wps-read-aloud-comate”，UOS 为 “cn.wps-read-aloud-comate”
-版本：1.0.32
+版本：1.0.34
 架构：x86/x64 Windows、Linux amd64、Linux arm64
 适用操作系统：x86/x64 Windows、银河麒麟 x64/ARM64、UOS x64/ARM64，以及兼容 WPS JS 加载项和本地离线服务的同类系统
 适用办公软件：Windows 平台要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；Linux 平台要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
@@ -12,45 +12,42 @@ Debian 包名：银河麒麟为 “wps-read-aloud-comate”，UOS 为 “cn.wps-
 
 ## 本版本变更
 
-- 修复 Windows 安装阶段 “Register-ScheduledTask：拒绝访问” 导致安装失败的问题。Windows 自启动方案从计划任务改为当前用户 Run 注册表项，不再依赖任务计划程序权限。
-- Windows 安装后会写入 “HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WPSReadAloudComate”，并通过隐藏 PowerShell 启动本地朗读服务；安装时也会立即隐藏启动一次服务。
-- Windows 卸载脚本同步清理 Run 自启动项、结束本项目安装目录下的本地朗读服务进程，并兼容清理旧版本可能创建的计划任务。
-- 修复 Windows 安装包无法识别已安装 WPS 个人版的问题。安装器会优先调用 64 位 Windows PowerShell，避免 32 位安装器落入 32 位注册表和文件系统视图后漏检 64 位 WPS。
-- 扩展 Windows WPS 探测范围，新增读取 “App Paths\wps.exe”、Kingsoft/WPS 注册表键、开始菜单快捷方式、桌面快捷方式、“ProgramW6432”、Program Files、Program Files (x86)、LocalAppData 和 AppData 等入口。
-- Windows 安装日志会记录实际检测到的 WPS 可执行文件路径、位数和版本，便于区分个人版、专业版、32 位或 64 位 WPS。
-- Windows 安装器继续使用当前用户安装路径 “%LOCALAPPDATA%\Programs\WPS Read Aloud Comate”，避免普通用户写入系统 Program Files 目录时出现权限错误。
-- 保持同一 Windows 安装包同时支持 32 位和 64 位 WPS。项目采用 WPS JS 加载项加独立本地朗读服务，不向 WPS 进程内注入 DLL，因此本地朗读服务位数不需要和 WPS 客户端位数一致。
-- 更新验收测试和第三方模型许可说明，补齐 Windows、银河麒麟、UOS 五类安装包的测试入口和多平台安装目录描述。
+- WPS 加载项授权显示名改为“文档朗读助手”，授权说明改为“WPS文档朗读助手加载项申请访问本机语音合成服务”，避免在用户提示中暴露内部包名。
+- Windows 安装程序增加图形化安装界面，显示安装路径、安装进度、当前动作、安装结果、失败原因和安装完成后的操作建议。
+- Windows 加载项注册改为“在线入口加本地入口”双注册：publish.xml 用于让 WPS 发现加载项，jsplugins.xml 作为本地文件兜底入口。
+- Windows 安装阶段会启动并等待本机语音合成服务健康检查通过，同时清理本项目旧名称的 WPS 授权缓存和 JS 加载项阻止缓存，降低升级后看不到“文档朗读”选项卡的概率。
+- Linux 注册脚本同步使用中文加载项显示名，并兼容清理旧版本使用的内部名称。
+- 全部交付包版本更新为 1.0.34，并补充 Windows 图形安装器文件的发布产物校验。
 
 ## 交付文件
 
-    dist/wps-read-aloud-comate_1.0.32_windows.exe
-    dist/wps-read-aloud-comate_1.0.32_amd64.deb
-    dist/wps-read-aloud-comate_1.0.32_arm64.deb
-    dist/cn.wps-read-aloud-comate_1.0.32_amd64.deb
-    dist/cn.wps-read-aloud-comate_1.0.32_arm64.deb
+    dist/wps-read-aloud-comate_1.0.34_windows.exe
+    dist/wps-read-aloud-comate_1.0.34_amd64.deb
+    dist/wps-read-aloud-comate_1.0.34_arm64.deb
+    dist/cn.wps-read-aloud-comate_1.0.34_amd64.deb
+    dist/cn.wps-read-aloud-comate_1.0.34_arm64.deb
 
 ## 安装提示
 
 x86/x64 Windows 环境：
 
-    运行 dist/wps-read-aloud-comate_1.0.32_windows.exe
+    运行 dist/wps-read-aloud-comate_1.0.34_windows.exe
 
 银河麒麟 x64 环境：
 
-    sudo dpkg -i dist/wps-read-aloud-comate_1.0.32_amd64.deb
+    sudo dpkg -i dist/wps-read-aloud-comate_1.0.34_amd64.deb
 
 银河麒麟 ARM64 环境：
 
-    sudo dpkg -i dist/wps-read-aloud-comate_1.0.32_arm64.deb
+    sudo dpkg -i dist/wps-read-aloud-comate_1.0.34_arm64.deb
 
 UOS x64 环境：
 
-    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.32_amd64.deb
+    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.34_amd64.deb
 
 UOS ARM64 环境：
 
-    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.32_arm64.deb
+    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.34_arm64.deb
 
 如果 WPS 已经打开，请安装完成后重启 WPS，再使用顶部“文档朗读”选项卡。
 

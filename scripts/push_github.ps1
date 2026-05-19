@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$Owner = "iwannawi",
   [string]$Repo = "wps-read-aloud",
   [string]$Branch = "main",
