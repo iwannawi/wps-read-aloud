@@ -11,16 +11,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BASE_PKG_NAME = "wps-read-aloud-comate"
 UOS_APP_ID = "cn.wps-read-aloud-comate"
-VERSION = os.environ.get("VERSION", "1.0.37")
+VERSION = os.environ.get("VERSION", "1.0.38")
 RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260520")
 ARCH = os.environ.get("ARCH", "arm64")
 DISTRO = os.environ.get("DISTRO", "kylin").lower()
 DISTRO_LABELS = {
-    "kylin": "银河麒麟",
-    "uos": "UOS",
+    "kylin": "银河麒麟 V10 及以上",
+    "uos": "UOS V20",
+}
+ARCH_LABELS = {
+    "amd64": "x64",
+    "arm64": "ARM64",
 }
 if DISTRO not in DISTRO_LABELS:
     raise SystemExit(f"unsupported DISTRO: {DISTRO}; expected one of {', '.join(sorted(DISTRO_LABELS))}")
+if ARCH not in ARCH_LABELS:
+    raise SystemExit(f"unsupported ARCH: {ARCH}; expected one of {', '.join(sorted(ARCH_LABELS))}")
+PLATFORM_LABEL = f"{ARCH_LABELS[ARCH]} {DISTRO_LABELS[DISTRO]}"
 OUT = ROOT / "dist"
 PKG_NAME = UOS_APP_ID if DISTRO == "uos" else BASE_PKG_NAME
 ARTIFACT_NAME = UOS_APP_ID if DISTRO == "uos" else BASE_PKG_NAME
@@ -51,7 +58,6 @@ REQUIRED = [
     "RELEASE_NOTES.md",
     "ACCEPTANCE_TEST.md",
     "SOURCE_OFFER.md",
-    "docs/BUILD_RELEASE_LESSONS.md",
     "docs/MULTI_PLATFORM_PACKAGING.md",
 ]
 
@@ -72,7 +78,6 @@ PROJECT_DOC_FILES = [
     "RELEASE_NOTES.md",
     "ACCEPTANCE_TEST.md",
     "SOURCE_OFFER.md",
-    "docs/BUILD_RELEASE_LESSONS.md",
     "docs/MULTI_PLATFORM_PACKAGING.md",
 ]
 
@@ -319,9 +324,9 @@ def normalize_control() -> None:
                 replaces += f", {UOS_APP_ID}"
             out.append(f"Replaces: {replaces}")
         elif line.startswith("Description:"):
-            out.append(f"Description: WPS 文档朗读助手 for {DISTRO_LABELS[DISTRO]} {ARCH}")
+            out.append(f"Description: WPS 文档朗读助手 for {PLATFORM_LABEL}")
         elif line.startswith(" Supports "):
-            out.append(f" Supports {DISTRO_LABELS[DISTRO]} {ARCH}. Requires WPS Office 2019 or later; latest stable WPS Office for Linux is recommended.")
+            out.append(f" Supports {PLATFORM_LABEL}. Requires WPS Office 2019 or later; latest stable WPS Office for Linux is recommended.")
         else:
             out.append(line)
     (DEBIAN / "control").write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")

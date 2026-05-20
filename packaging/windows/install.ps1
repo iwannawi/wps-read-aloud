@@ -406,7 +406,7 @@ function Test-WpsRequirement {
   $Detected = ($Installations | ForEach-Object {
     "路径：$($_.Path)；位数：$($_.Architecture)；版本：$($_.VersionText)"
   }) -join "`r`n"
-  throw "未找到符合版本要求的 WPS Office。Windows 平台最低要求 WPS Office 2019 或更高版本。`r`n已检测到：`r`n$Detected`r`n请升级或安装 WPS Office 后再运行本安装包。"
+  throw "未找到符合版本要求的 WPS Office。x86/x64 Windows 10/11 最低要求 WPS Office 2019 或更高版本。`r`n已检测到：`r`n$Detected`r`n请升级或安装 WPS Office 后再运行本安装包。"
 }
 
 function New-DaemonLauncher {

@@ -2,52 +2,50 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-Debian 包名：银河麒麟为 “wps-read-aloud-comate”，UOS 为 “cn.wps-read-aloud-comate”
-版本：1.0.37
-架构：x86/x64 Windows、Linux amd64、Linux arm64
-适用操作系统：x86/x64 Windows、银河麒麟 x64/ARM64、UOS x64/ARM64，以及兼容 WPS JS 加载项和本地离线服务的同类系统
-适用办公软件：Windows 平台要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；Linux 平台要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
+Debian 包名：x64/ARM64 银河麒麟 V10 及以上为 “wps-read-aloud-comate”，x64/ARM64 UOS V20 为 “cn.wps-read-aloud-comate”
+版本：1.0.38
+架构和系统：x86/x64 Windows 10/11、x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20
+适用办公软件：x86/x64 Windows 10/11 要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
 开发者：Zhang Jingyao
 发布时间：20260520
 
 ## 本版本变更
 
-- 修复 Windows WPS 中点击“开始朗读”“状态检查”“关于朗读”后弹出空白窗体的问题。
-- 修复 Windows WPS 中功能按钮额外调起外部浏览器打开 “dialog.html” 的问题。
-- 弹窗页面地址改为固定使用本机服务绝对地址，避免 WPS 内置弹窗加载相对路径时出现空白页。
-- WPS 环境下如果内置弹窗接口异常，不再回退到浏览器窗口，而是使用本地提示兜底，避免重复弹窗。
-- 保留上一版本中的 Linux 首次授权提示缓解、启动小窗滚动条修复和同版本重装修复。
-- 全部交付包版本更新为 1.0.37。
+- 统一所有说明、弹窗和打包元数据中的平台表述，固定使用“CPU 架构 + 操作系统名”的顺序。
+- 明确支持范围为 x86/x64 Windows 10/11、x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20。
+- 更新关于朗读弹窗、验收说明、源码获取说明、第三方组件声明和多平台打包说明中的适用环境描述。
+- 更新 Debian 控制信息，使安装包描述按 CPU 架构和操作系统写入。
+- 全部交付包版本更新为 1.0.38。
 
 ## 交付文件
 
-    dist/wps-read-aloud-comate_1.0.37_windows.exe
-    dist/wps-read-aloud-comate_1.0.37_amd64.deb
-    dist/wps-read-aloud-comate_1.0.37_arm64.deb
-    dist/cn.wps-read-aloud-comate_1.0.37_amd64.deb
-    dist/cn.wps-read-aloud-comate_1.0.37_arm64.deb
+    dist/wps-read-aloud-comate_1.0.38_windows.exe
+    dist/wps-read-aloud-comate_1.0.38_amd64.deb
+    dist/wps-read-aloud-comate_1.0.38_arm64.deb
+    dist/cn.wps-read-aloud-comate_1.0.38_amd64.deb
+    dist/cn.wps-read-aloud-comate_1.0.38_arm64.deb
 
 ## 安装提示
 
-x86/x64 Windows 环境：
+x86/x64 Windows 10/11：
 
-    运行 dist/wps-read-aloud-comate_1.0.37_windows.exe
+    运行 dist/wps-read-aloud-comate_1.0.38_windows.exe
 
-银河麒麟 x64 环境：
+x64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i dist/wps-read-aloud-comate_1.0.37_amd64.deb
+    sudo dpkg -i dist/wps-read-aloud-comate_1.0.38_amd64.deb
 
-银河麒麟 ARM64 环境：
+ARM64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i dist/wps-read-aloud-comate_1.0.37_arm64.deb
+    sudo dpkg -i dist/wps-read-aloud-comate_1.0.38_arm64.deb
 
-UOS x64 环境：
+x64 UOS V20：
 
-    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.37_amd64.deb
+    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.38_amd64.deb
 
-UOS ARM64 环境：
+ARM64 UOS V20：
 
-    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.37_arm64.deb
+    sudo dpkg -i dist/cn.wps-read-aloud-comate_1.0.38_arm64.deb
 
 如果 WPS 已经打开，请安装完成后重启 WPS，再使用顶部“文档朗读”选项卡。
 

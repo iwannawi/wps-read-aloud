@@ -18,6 +18,11 @@ FORBIDDEN_RESOURCE_TOKENS = (
     "espeak",
 )
 
+FORBIDDEN_PACKAGE_FILENAMES = (
+    "BUILD_RELEASE_LESSONS.md",
+    "CODEX_AUTOMATION.md",
+)
+
 
 def fail(message: str) -> None:
     raise SystemExit(message)
@@ -72,6 +77,10 @@ def check_no_forbidden(names: set[str], artifact: Path) -> None:
         matches = [name for name in lowered if token in name]
         if matches:
             fail(f"forbidden unused resource in {artifact.name}: {matches[0]}")
+    for filename in FORBIDDEN_PACKAGE_FILENAMES:
+        matches = [name for name in names if name.endswith("/" + filename) or name == filename]
+        if matches:
+            fail(f"internal project document leaked into {artifact.name}: {matches[0]}")
 
 
 def check_linux_package(target: dict, artifact: Path) -> None:

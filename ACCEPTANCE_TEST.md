@@ -2,32 +2,32 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.0.33
-目标环境：x86/x64 Windows、银河麒麟 x64/ARM64、UOS x64/ARM64，以及兼容 WPS JS 加载项和本地离线服务的同类系统。Windows 平台要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；Linux 平台要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
+版本：1.0.38
+目标环境：x86/x64 Windows 10/11、x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20。x86/x64 Windows 10/11 要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
 
 ## 安装测试
 
-Windows 环境：
+x86/x64 Windows 10/11：
 
-    运行 wps-read-aloud-comate_1.0.33_windows.exe
+    运行 wps-read-aloud-comate_1.0.38_windows.exe
 
-银河麒麟 x64 环境：
+x64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i wps-read-aloud-comate_1.0.33_amd64.deb
+    sudo dpkg -i wps-read-aloud-comate_1.0.38_amd64.deb
 
-银河麒麟 ARM64 环境：
+ARM64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i wps-read-aloud-comate_1.0.33_arm64.deb
+    sudo dpkg -i wps-read-aloud-comate_1.0.38_arm64.deb
 
-UOS x64 环境：
+x64 UOS V20：
 
-    sudo dpkg -i cn.wps-read-aloud-comate_1.0.33_amd64.deb
+    sudo dpkg -i cn.wps-read-aloud-comate_1.0.38_amd64.deb
 
-UOS ARM64 环境：
+ARM64 UOS V20：
 
-    sudo dpkg -i cn.wps-read-aloud-comate_1.0.33_arm64.deb
+    sudo dpkg -i cn.wps-read-aloud-comate_1.0.38_arm64.deb
 
-Windows 包安装前应检测本机 WPS Office：
+x86/x64 Windows 10/11 安装包安装前应检测本机 WPS Office：
 
 - 能显示检测到的 WPS 路径、版本和位数。
 - 32 位和 64 位 WPS 都可以继续安装。
@@ -35,10 +35,10 @@ Windows 包安装前应检测本机 WPS Office：
 
 预期结果：
 - 安装过程无错误退出。
-- Windows 环境写入 “HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WPSReadAloudComate” 当前用户自启动项，本地朗读服务可在用户登录后隐藏启动。
-- Windows 安装日志写入 “%LOCALAPPDATA%\WPSReadAloudComate\Logs\install.log”。
-- Linux 环境后台 “wps-tts.service” 启动并保持运行。
-- Linux 安装日志写入 “/var/log/wps-read-aloud-install.log”。
+- x86/x64 Windows 10/11 写入 “HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WPSReadAloudComate” 当前用户自启动项，本地朗读服务可在用户登录后隐藏启动。
+- x86/x64 Windows 10/11 安装日志写入 “%LOCALAPPDATA%\WPSReadAloudComate\Logs\install.log”。
+- x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 后台 “wps-tts.service” 启动并保持运行。
+- x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 安装日志写入 “/var/log/wps-read-aloud-install.log”。
 - 从旧包名升级时不出现 dpkg 文件覆盖冲突。
 - 覆盖升级后重启 WPS，可以加载新版“文档朗读”选项卡。
 
@@ -76,12 +76,12 @@ Windows 包安装前应检测本机 WPS Office：
 
 示例文本：
 
-    这是 WPS 2026 read aloud test，版本是 v1.0.33。
+    这是 WPS 2026 read aloud test，版本是 v1.0.38。
 
 预期结果：
 - 中文正常朗读。
 - 英文和数字不被跳过。
-- 英文和数字按单字符中文读法朗读，例如 “WPS”、“2026”、“v1.0.33” 会被逐字符读出。
+- 英文和数字按单字符中文读法朗读，例如 “WPS”、“2026”、“v1.0.38” 会被逐字符读出。
 - 逗号、顿号、分号、冒号等句内语义标点处应有自然停顿；双引号、单引号、书名号、括号等成对符号不额外增加停顿。
 - 默认 “1.2x” 语速下，句内标准停顿按约 “400ms” 设计，句末追加约 “600ms” 静音；切换其他语速时停顿随语速等比例缩放。
 
@@ -89,7 +89,7 @@ Windows 包安装前应检测本机 WPS Office：
 
 - 状态检查和关于朗读弹窗不出现黄色三角叹号图标。
 - 关于朗读标题为“WPS 文档朗读助手”。
-- 关于朗读内容包含适用操作系统、适用办公软件、开发者、发布时间、版本、软件包和服务地址。
+- 关于朗读内容包含适用操作系统、适用办公软件、开发者、发布时间、版本、软件包和服务地址，平台表述必须保持“CPU 架构 + 操作系统名”的顺序。
 - 关于朗读说明文件可以在同一弹窗内点击打开，并可返回关于页。
 - 默认窗口大小下内容布局紧凑，尽量不出现滚动条。
 
