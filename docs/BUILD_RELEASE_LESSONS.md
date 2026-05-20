@@ -1,78 +1,85 @@
 # 构建与发布经验记录
 
-本文档记录本项目构建、测试、同步和发布过程中已经验证过的失败动作、替代方案和固定流程，避免后续版本重复踩坑。
+本文档只记录已经验证过的失败动作和替代方案。正式安装包不包含本文档。
 
-## x86/x64 Windows 10/11 本机构建
+## 工具链
 
-- 不使用 Windows Store 的 “python” 命令；它可能只是商店别名。需要运行项目脚本时使用 Codex 工作区内置 Python：
-  “<bundled-python>”
-- 2026-05-19 再次验证：直接运行 “python packaging\sync_addin_web.py” 会触发 Windows Store Python 提示，仍应使用 Codex 工作区内置 Python。
-- 需要执行 JavaScript 语法检查时使用 Codex 工作区内置 Node：
-  “<bundled-node>”
-- 在 PowerShell 里用 “powershell.exe -Command” 检查脚本语法时，不要把含有 “$null” 的命令放在外层双引号里；外层 PowerShell 会提前展开变量，导致出现 “=[scriptblock]::Create” 这类误报。推荐直接使用 “[scriptblock]::Create(... ) | Out-Null”。
-- Windows PowerShell 5 读取无 BOM 的 UTF-8 脚本时可能按本地编码解析，中文字符串会乱码，严重时会造成脚本解析失败。Windows 安装、卸载脚本需要保存为带 BOM 的 UTF-8，并用 Windows PowerShell 5 做语法检查。
-- 在外层 PowerShell 调用 “powershell.exe -Command” 时，含 “$files”、“$f”、“$s” 的命令要放在单引号中，避免外层提前展开变量导致 “foreach( in )” 这类语法错误。
-- Go 服务目标环境包含 x86/x64 Windows 10/11、x64 银河麒麟 V10 及以上、ARM64 银河麒麟 V10 及以上、x64 UOS V20 和 ARM64 UOS V20。x86/x64 Windows 10/11 上不能直接运行交叉编译后的 Linux 测试二进制；验证方式应使用多目标编译检查和本机可运行的 Go 单元测试。
-- x86/x64 Windows 10/11 上构建 ARM64 银河麒麟 V10 及以上、ARM64 UOS V20 daemon 时使用 “-buildvcs=false”，避免 VCS 元信息写入在受限环境下失败。
-- Go 服务必须在 “daemon” 目录内构建。不要在仓库根目录直接运行 “go build .\daemon\cmd\wps-tts-daemon”，否则会出现 “cannot find main module, but found .git/config”。
-- 在 “daemon” 目录内运行 Go 命令时，PowerShell 下不要写 “tools\go\bin\go.exe”；这会被当作模块名解析。应使用相对父目录形式 “..\tools\go\bin\go.exe” 或完整路径。仓库根目录也不是 Go module 根，Windows 安装器模块需要进入 “packaging\windows\installer” 后用 “..\..\..\tools\go\bin\go.exe test .” 验证。
-- 本机已验证的 ARM64 银河麒麟 V10 及以上、ARM64 UOS V20 daemon 构建方式是：先进入 “daemon” 目录，再执行 “GOOS=linux GOARCH=arm64 CGO_ENABLED=0 GOCACHE=C:\tmp\go-build-cache ..\tools\go\bin\go.exe build -buildvcs=false -o ..\dist\wps-tts-daemon-linux-arm64 .\cmd\wps-tts-daemon”。
+- 不使用 Windows Store 的 python 别名。运行项目脚本时使用 Codex 工作区内置 Python。
+- 执行 JavaScript 语法检查时使用 Codex 工作区内置 Node。
+- Windows PowerShell 5 会按本地编码误读无 BOM 的 UTF-8 脚本。Windows 安装、卸载脚本应保存为 UTF-8 BOM，并用 Windows PowerShell 5 做语法检查。
+- 在 PowerShell 外层命令中包含 $null、$files、$f、$s 等变量时，避免外层提前展开。
+- Go 服务必须在 daemon 目录内构建。Windows 安装器必须在 packaging/windows/installer 目录内测试。
 
-## 多平台安装包
+## 构建
 
-- 多平台入口脚本是 “packaging\build_all.py”。使用 “--list” 查看五类安装包目标；按需调试单个目标时使用对应目标编号，例如 “windows”、“kylin-amd64”、“kylin-arm64”、“uos-amd64” 或 “uos-arm64”。
-- 当前仓库已经具备五类安装包的目录、配置和脚本框架；正式发布前必须确认每个目标的 Sherpa ONNX 运行文件、模型资源和 daemon 二进制都已准备齐全。
-- x86/x64 Windows 10/11 安装脚本不得覆盖整个 WPS 加载项配置文件。安装和卸载时只增删本项目当前中文名称“文档朗读助手”和旧内部名称“wps-read-aloud”对应条目，并对原配置文件生成带时间戳的备份。
-- x86/x64 Windows 10/11 安装包默认不要写入 “C:\Program Files (x86)”。普通用户无管理员权限时会报 “New-Item：访问被拒绝”。默认安装路径应使用 “%LOCALAPPDATA%\Programs\WPS Read Aloud Comate”，日志使用 “%LOCALAPPDATA%\WPSReadAloudComate\Logs”。
-- x86/x64 Windows 10/11 计划任务的 “RunLevel” 只能使用 “Limited” 或 “Highest”。不要使用 “LeastPrivilege”，否则部分系统会在安装时报参数转换失败。
-- 2026-05-19 验证：即使 “RunLevel” 改为 “Limited”，部分 x86/x64 Windows 10/11 环境仍可能在 “Register-ScheduledTask” 阶段报“拒绝访问”。普通用户安装包应优先使用 “HKCU\Software\Microsoft\Windows\CurrentVersion\Run” 注册当前用户自启动，并用隐藏 PowerShell 启动本地朗读服务；计划任务仅作为旧版本清理兼容项。
-- 2026-05-19 验证：生成 “start-daemon.ps1” 时，不要把 PowerShell 变量写成 “""$Config""” 这类双重引号。隐藏启动会吞掉解析错误，导致本地服务没起来，WPS 通过 “127.0.0.1:19860” 加载在线入口失败，表现为看不到加载项选项卡。生成后应使用 PowerShell Parser 对安装脚本和生成脚本文本做语法检查。
-- x86/x64 Windows 10/11 安装阶段不要再通过 “powershell.exe -File start-daemon.ps1” 二跳启动 daemon。实际验证中二跳启动和健康检查存在时序错位，安装器可能先判失败而 daemon 随后才启动。安装阶段直接 “Start-Process” daemon，登录自启动再使用 “start-daemon.ps1”。
-- x86/x64 Windows 10/11 端不要让 Ribbon UI 是否显示受本地服务启动时序影响。安装阶段必须先启动并健康检查本地服务，再写入 WPS 加载项注册；旧版授权缓存和阻止缓存需要谨慎清理。
-- 2026-05-19 复盘：仅写入 “jsplugins.xml” 本地入口在部分 x86/x64 Windows 10/11 WPS 环境中可能不显示“文档朗读”选项卡。后续 x86/x64 Windows 10/11 安装应采用 “publish.xml” 在线入口加 “jsplugins.xml” 本地入口的双注册方式，同时保证本地服务已启动并通过健康检查。不要再回退到“只写本地入口”的方案。
-- 2026-05-19 复盘：WPS 授权弹窗会优先呈现加载项注册名称。注册名称应使用中文“文档朗读助手”，描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”；内部目录和包名可以继续使用英文标识，但不要作为用户授权提示的显示名称。
-- 2026-05-19 复盘：Windows PowerShell 5 解析包含中文的脚本时，必须确保脚本保存为 UTF-8 BOM；否则会按系统 ANSI 误读，造成乱码和字符串语法错误。x86/x64 Windows 10/11 图形安装器中的自定义函数作为表达式传参时，应写成 “(Read-LogTail)” 形式，不要写成 “Read-LogTail()”。
-- 2026-05-20 复盘：Go 安装器启动 PowerShell WinForms 安装界面时，不要使用 “HideWindow: true”，否则可能把 WinForms 主窗体也隐藏掉，用户看到的就是点击 exe 后完全没有反应。图形 UI 路径应使用 STA 模式，并使用 “CREATE_NO_WINDOW” 隐藏控制台但保留窗体；UI 启动失败时外层 exe 必须弹出错误提示。
-- 2026-05-20 复盘：x86/x64 Windows 10/11 WPS 的 “jspluginonline” 入口不要把 “url” 写到具体 “index.html”。x86/x64 Windows 10/11 WPS 会把该地址作为加载项目录根来定位 “ribbon.xml”等资源；应使用 “http://127.0.0.1:19860/addin/”。如果旧授权缓存里记录了 “/addin/index.html”，x86/x64 Windows 10/11 升级安装时必须清理当前中文名称和旧内部名称的授权缓存，让 WPS 重新加载新入口。该问题目前只在 x86/x64 Windows 10/11 客户端确认，不要同步改动 x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 已验证正常的注册入口。
-- 2026-05-20 复盘：x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 首次点击朗读时出现“允许访问 127.0.0.1:19860”弹窗，根因可能是 WPS 从本地 file 加载项页面跨源访问本地服务。WPS 内置安全弹窗文案很可能由访问目标自动生成，不能完全靠 “desc” 改写。可通过让对应系统的 “jsplugins.xml” 入口也指向 “http://127.0.0.1:19860/addin/index.html”，并让前端在 http 环境下使用相对路径，减少跨源授权提示。
-- 2026-05-20 复盘：启动朗读小窗如果仍出现滚动条，除了给 “body.compact” 清最小尺寸，也要给 “html.compact” 清 “min-width/min-height”。否则 “html, body” 的全局最小尺寸会继续撑出滚动条。
-- 2026-05-20 复盘：x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 同版本重装时，如果端口已由本项目自己的旧服务占用，preinst 不应直接阻断。应同时检查 marker、service 文件路径和 “/health” 响应，确认是本项目服务后允许 dpkg 继续覆盖安装。
-- 2026-05-20 复盘：前端把 API 基址切成同源相对路径时，不能连弹窗地址一起改成 “/dialog.html”。x86/x64 Windows 10/11 WPS 的 ShowDialog 对相对地址兼容性差，容易出现空白窗体；ShowDialog 应使用 “http://127.0.0.1:19860/dialog.html?...” 绝对地址。WPS 环境下 ShowDialog 失败后也不要回退到 “window.open”，否则会额外调起外部浏览器。
-- 2026-05-20 复盘：x86/x64 Windows 10/11 打包的 Sherpa-onnx 当前参数是 “--vits-tokens”，不是旧版或其他封装里的 “--tokens”；也不支持 “--tts-sample-rate”。如果 Windows 端出现 “Sherpa-onnx 语音引擎启动失败”，先用 payload 内的 “sherpa-onnx-offline-tts.exe --help” 和完整参数直接合成 WAV，不要只看文件是否存在。
-- x86/x64 Windows 10/11 覆盖安装前必须先停止当前安装目录下正在运行的旧版 “wps-tts-daemon.exe”。否则 “Copy-Item” 会因为 exe 被占用报 “being used by another process”，导致升级安装失败。
-- x86/x64 Windows 10/11 安装期健康检查不要只等 10 到 15 秒。受杀毒扫描、低性能机器或首次启动影响，daemon 可能在安装器判失败后才完成启动。当前使用 60 秒等待窗口。
-- x86/x64 Windows 10/11 安装前必须探测 WPS 客户端：至少检查 “wps.exe” 路径、产品版本和 PE 位数。本项目不是进程内 DLL 插件，WPS JS 加载项通过 127.0.0.1 调用独立本地朗读服务，因此本地服务位数不需要和 WPS 位数一致；位数检测用于日志和故障定位，不应阻止 64 位 WPS 安装。
-- x86 Windows 10/11 安装器启动 “powershell.exe” 时可能进入 32 位 PowerShell，从而漏读 64 位注册表和 “C:\Program Files”。安装器应优先调用 “%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe”，安装脚本也必须读取 “App Paths\wps.exe”、Kingsoft/WPS 注册表键、开始菜单快捷方式和 “ProgramW6432”。
-- x86/x64 Windows 10/11 安装器应使用 “go build -ldflags -H=windowsgui” 构建为 GUI 子系统程序，避免正常安装时弹出命令行窗口。失败和成功提示使用系统消息框。
-- 正式发布必须运行 “python packaging/build_all.py” 构建五个目标，并运行 “python packaging/verify_release_artifacts.py” 检查五个安装包。只构建单个目标只能用于本地调试，不能用于发布 Release。
-- 发布脚本 “scripts\publish_github_release.ps1” 必须在上传前执行五包完整性检查；缺少任意一个安装包或 SHA256 文件时立即失败。
-- 安装包资源要按平台最小化：x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 包不得包含 Windows exe、Piper、eSpeak NG；x86/x64 Windows 10/11 包不得包含 Linux systemd 服务、Linux so、Piper、eSpeak NG。
+- 正式发布只使用 packaging/build_all.py 构建五个目标。
+- 单目标构建只用于调试，不用于正式发布。
+- 目标清单：windows、kylin-amd64、kylin-arm64、uos-amd64、uos-arm64。
+- 在 Windows 本机交叉编译 Linux daemon 时使用 -buildvcs=false，避免受限环境读取 VCS 元信息失败。
+- x86/x64 Windows 10/11 不能直接运行交叉编译后的 Linux 测试二进制。验证方式是多目标编译检查和本机可运行的 Go 单元测试。
 
-## 前端与图标
+## Windows 安装
 
-- WPS Office for Linux 加载项 Ribbon 图标优先使用 “size="large"” 配合 “getImage="ribbon.GetImage"”，静态 “image="..."” 在部分 x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 环境下可能不显示。
-- 当前图标源文件放在 “addin/assets/icons/”；WPS Ribbon 回调应返回加载项内静态资源路径，例如 “assets/icons/start.png”。已验证 Base64 和 data URI 在部分 WPS Linux 版本中可能显示问号占位图，不再作为默认方案。
-- 仅修改前端、图标、弹窗样式或说明文件时，可以复用最近一个安装包里的 daemon 二进制，不必重新编译 Go 服务。
+- 默认安装目录使用 %LOCALAPPDATA%\Programs\WPS Read Aloud Comate，不写入 C:\Program Files。
+- 使用 HKCU\Software\Microsoft\Windows\CurrentVersion\Run 注册当前用户自启动，不依赖计划任务。
+- 旧版计划任务只做清理兼容。RunLevel 只允许 Limited 或 Highest，不使用 LeastPrivilege。
+- 安装阶段直接 Start-Process 启动 daemon；登录自启动再使用 start-daemon.ps1。
+- 安装前必须停止当前安装目录下正在运行的旧版 wps-tts-daemon.exe。
+- 安装期健康检查等待 60 秒，避免低性能机器或首次杀毒扫描导致误判。
+- 安装器应构建为 Windows GUI 子系统程序，正常安装不弹命令行窗口。
+- Go 安装器启动 WinForms 界面时不要隐藏窗体。应隐藏控制台，保留安装界面。
 
-## 语音与性能
+## Windows WPS 注册
 
-- 不要把逗号、顿号、冒号、分号等句内标点拆成多个 TTS 合成任务；这样会让一句话内的合成次数从 1 次变成多次，低性能机器上启动等待会明显增加。
-- 推荐策略是“句内文本节奏提示 + 句末 WAV 精确静音”：每句仍只调用一次 fanchen-C 合成，生成后再追加句末静音。
-- 默认 “1.2x” 语速下，句内标准停顿按约 “400ms” 设计，句末追加 “600ms” 静音；其他语速按比例缩放。
+- 安装脚本不得覆盖整个 WPS 加载项配置文件，只增删本项目条目。
+- 注册名称使用中文“文档朗读助手”。
+- 授权描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”。
+- Windows 端采用 publish.xml 在线入口加 jsplugins.xml 本地入口的双注册方式。
+- jspluginonline 的 url 写到 http://127.0.0.1:19860/addin/，不要写到 index.html。
+- 升级时清理当前中文名称和旧内部名称的授权缓存、阻止缓存。
+- x86 Windows 10/11 启动 PowerShell 时优先使用 Sysnative，避免漏读 64 位注册表。
+
+## Linux 安装
+
+- x64 银河麒麟 V10 及以上、ARM64 银河麒麟 V10 及以上、x64 UOS V20、ARM64 UOS V20 使用 systemd。
+- 同版本重装时，如果端口已由本项目旧服务占用，preinst 不应直接阻断。
+- 判断旧服务时同时检查 marker、service 文件路径和 /health 响应。
+- WPS 首次访问 127.0.0.1:19860 的授权弹窗可能由 WPS 内核生成，不能完全依赖 desc 改写文案。
+
+## 前端与弹窗
+
+- WPS ShowDialog 使用 http://127.0.0.1:19860/dialog.html 的绝对地址。
+- ShowDialog 失败后不要在 WPS 环境回退到 window.open，避免调起外部浏览器。
+- 启动小窗如出现滚动条，需要同时检查 html.compact 和 body.compact 的最小尺寸。
+- 部分 WPS 内置浏览器不支持 URLSearchParams，弹窗参数解析应使用兼容实现。
+
+## 图标
+
+- WPS Office for Linux Ribbon 图标优先使用 size="large" 配合 getImage。
+- getImage 默认返回加载项静态资源路径，例如 assets/icons/start.png。
+- Base64 和 data URI 在部分 WPS Linux 版本中可能显示问号，不作为默认方案。
+
+## 语音引擎
+
+- Windows Sherpa-onnx 使用 --vits-tokens，不使用 --tokens。
+- Windows Sherpa-onnx 当前不支持 --tts-sample-rate。
+- 如果出现“Sherpa-onnx 语音引擎启动失败”，先运行 payload 内 sherpa-onnx-offline-tts.exe --help，再用完整参数直接合成 WAV。
+- 逗号、顿号、冒号、分号等句内标点不要拆成多个 TTS 任务。
+- 推荐策略是句内文本节奏提示加句末 WAV 静音。
 
 ## 发布目录
 
-- “dist/” 最终只保留本版本 x86/x64 Windows 10/11 “.exe”，x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 “.deb” 以及对应 “.sha256”。临时检查脚本、发布日志、旧安装包、可能包含认证信息的输出文件都应清理。
-- “dist/wps-tts-daemon” 只是打包时复用或缓存的 daemon 二进制，不是最终交付物；发布前应清理，避免用户误用。
-- 检查 Debian 包内容时，当前构建脚本生成的 tar 成员路径不带 “./” 前缀。控制文件路径是 “control”；x64/ARM64 银河麒麟 V10 及以上数据文件示例是 “opt/wps-read-aloud-comate/version.json”，x64/ARM64 UOS V20 数据文件示例是 “opt/apps/cn.wps-read-aloud-comate/files/version.json”。检查脚本不要硬编码 “./control”。
-- 如果刚运行过 Windows 安装包，再次构建可能因为安装器窗口仍在运行而无法覆盖 “dist” 下的 exe，错误表现为 “PermissionError: WinError 5”。先确认安装器窗口关闭，或检查并结束对应安装器进程后再重建。
+- dist 最终只保留本版本五个安装包和五个 sha256 文件。
+- 不保留临时检查脚本、发布日志、旧安装包和可能含认证信息的输出。
+- dist/wps-tts-daemon 不是最终交付物，发布前清理。
+- 清理 dist 时不要在外层 PowerShell 双引号中直接写 $dist、$_ 等变量；变量会被提前展开。使用反引号转义变量，或避免使用外层变量。
+- Debian 包内容检查时不要硬编码 ./control；当前 tar 成员路径不带 ./ 前缀。
 
-## GitHub 推送与 Release
+## GitHub
 
-- 使用长期复用脚本 “scripts/push_github.ps1” 和 “scripts/publish_github_release.ps1”，不再为每个版本生成一次性脚本。
-- 2026-05-20 复盘：Codex 沙箱里普通 PowerShell 文件清理、包内抽查或 dist 列表命令偶发 “CreateProcessAsUserW failed: 5”。这不是项目代码失败，处理方式是只对当前项目目录内的明确命令申请提升执行，不要改用不受控的临时脚本绕过，也不要重复运行同一个必然失败的沙箱命令。
-- 推送和发布优先使用本机 Git Credential Manager。脚本不得输出 token、Basic 认证头或其他敏感凭据。
-- 2026-05-19 验证：如果 Git Credential Manager 里保存的 GitHub HTTPS 凭据失效，即使 “gh auth status” 正常，直接 “git push origin main” 仍会报 “Invalid username or token”。替代方案是优先读取 “gh auth token”，通过临时 “http.extraHeader” 注入本次 Git 命令，同时设置 “credential.helper=” 禁用失效凭据干扰，并避免在日志里打印认证头。
-- 2026-05-20 验证：如果 “scripts\push_github.ps1” 仍被系统凭据带偏并报 “Invalid username or token”，不要重复运行同一路径。直接读取 “gh auth token”，用临时 “http.extraHeader” 和 “credential.helper=” 禁用失效凭据后执行 “git push origin main” 与 “git push origin <tag>”。
-- 2026-05-19 验证：如果 “scripts/publish_github_release.ps1” 通过 curl 调 GitHub REST API 返回 401 “Bad credentials”，但 “gh auth status” 正常且 GitHub CLI 可以访问仓库，不要继续反复跑 curl 路径。直接使用 “gh release create” 或 “gh release upload” 发布，GitHub CLI 会使用当前已登录账号完成 Release 操作。
-- 每次发布 GitHub Release 时，Release 内容要包含版本号、发布日期、主要变更、安装包文件名和 SHA256。
+- 使用 scripts/push_github.ps1 和 scripts/publish_github_release.ps1，不再生成一次性脚本。
+- 推送优先使用 GitHub CLI token，通过临时 http.extraHeader 注入本次 Git 命令。
+- 如果 Git Credential Manager 凭据失效，不重复运行同一失败路径。
+- 仓库重命名后，常驻推送脚本仍可能被旧 HTTPS 凭据带偏并报 “Invalid username or token”。此时直接读取 gh auth token，禁用 credential.helper，并用临时 http.extraHeader 推送。
+- Release 发布优先使用 GitHub CLI；curl REST 路径返回 401 时不要反复重试。
+- Release 内容只写当前版本新增、变更、修复、安装包和 SHA256。

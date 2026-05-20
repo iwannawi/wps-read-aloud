@@ -1,7 +1,7 @@
 param(
   [string]$Owner = "iwannawi",
-  [string]$Repo = "wps-read-aloud",
-  [string]$Version = "1.0.39",
+  [string]$Repo = "wps-read-aloud-comate",
+  [string]$Version = "1.1.0",
   [string]$ReleaseDate = "20260520",
   [string]$Tag = "",
   [switch]$PromptToken
@@ -199,11 +199,12 @@ if ([string]::IsNullOrWhiteSpace($Token)) {
 
 $Body = [System.IO.File]::ReadAllText($ReleaseNotes, [System.Text.Encoding]::UTF8)
 $Body = $Body + "`n`n## SHA256`n`n````text`n" + [System.IO.File]::ReadAllText($Checksums, [System.Text.Encoding]::ASCII).Trim() + "`n````"
+$ReleaseName = "$Repo $Version $ReleaseDate"
 
 $Payload = @{
   tag_name = $Tag
   target_commitish = "main"
-  name = $Tag
+  name = $ReleaseName
   body = $Body
   draft = $false
   prerelease = $false

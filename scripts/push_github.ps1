@@ -1,6 +1,6 @@
 ﻿param(
   [string]$Owner = "iwannawi",
-  [string]$Repo = "wps-read-aloud",
+  [string]$Repo = "wps-read-aloud-comate",
   [string]$Branch = "main",
   [string]$Tag = "",
   [switch]$PromptToken

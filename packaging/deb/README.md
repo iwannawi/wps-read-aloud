@@ -1,57 +1,48 @@
 # Debian 安装包说明
 
-本目录用于生成 x64/ARM64 银河麒麟 V10 及以上和 x64/ARM64 UOS V20 的 Debian 安装包。正式出版本时由上级脚本 “packaging/build_all.py” 统一构建，不再保留单独面向某一 CPU 架构或某一操作系统的安装脚本。
+本目录用于生成 Linux deb 安装包。正式发布由 packaging/build_all.py 统一调度。
 
-## 输出文件
+## 输出
 
-当前版本的 x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 输出文件为：
-
-    dist/wps-read-aloud-comate_1.0.39_amd64.deb
-    dist/wps-read-aloud-comate_1.0.39_arm64.deb
-    dist/cn.wps-read-aloud-comate_1.0.39_amd64.deb
-    dist/cn.wps-read-aloud-comate_1.0.39_arm64.deb
-
-x64/ARM64 银河麒麟 V10 及以上包的内部包名为 “wps-read-aloud-comate”。x64/ARM64 UOS V20 包按照 UOS 应用包名习惯使用 “cn.wps-read-aloud-comate”。文件名统一采用 “包名_版本_架构.deb”。
+| CPU 架构 + 操作系统 | 包名 | 文件 |
+| --- | --- | --- |
+| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.0_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.0_arm64.deb |
+| x64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.0_amd64.deb |
+| ARM64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.0_arm64.deb |
 
 ## 安装内容
 
-x64/ARM64 银河麒麟 V10 及以上包：
+| CPU 架构 + 操作系统 | 程序目录 | 配置文件 | 文档目录 |
+| --- | --- | --- | --- |
+| x64 银河麒麟 V10 及以上 | /opt/wps-read-aloud-comate | /etc/wps-read-aloud-comate/config.yaml | /usr/share/doc/wps-read-aloud-comate |
+| ARM64 银河麒麟 V10 及以上 | /opt/wps-read-aloud-comate | /etc/wps-read-aloud-comate/config.yaml | /usr/share/doc/wps-read-aloud-comate |
+| x64 UOS V20 | /opt/apps/cn.wps-read-aloud-comate/files | /opt/apps/cn.wps-read-aloud-comate/files/config.yaml | /opt/apps/cn.wps-read-aloud-comate/files/doc |
+| ARM64 UOS V20 | /opt/apps/cn.wps-read-aloud-comate/files | /opt/apps/cn.wps-read-aloud-comate/files/config.yaml | /opt/apps/cn.wps-read-aloud-comate/files/doc |
 
-- 程序目录：“/opt/wps-read-aloud-comate”
-- 配置文件：“/etc/wps-read-aloud-comate/config.yaml”
-- 说明和许可证：“/usr/share/doc/wps-read-aloud-comate”
+共同安装：
 
-x64/ARM64 UOS V20 包：
+- /lib/systemd/system/wps-tts.service。
+- /usr/bin/wps-read-aloud-register。
+- /var/log/wps-read-aloud-install.log。
 
-- 程序目录：“/opt/apps/cn.wps-read-aloud-comate/files”
-- 配置文件：“/opt/apps/cn.wps-read-aloud-comate/files/config.yaml”
-- 说明和许可证：“/opt/apps/cn.wps-read-aloud-comate/files/doc”
+## 构建
 
-x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 包共同安装：
+列出目标：
 
-- 系统服务：“/lib/systemd/system/wps-tts.service”
-- WPS 加载项注册脚本：“/usr/bin/wps-read-aloud-register”
-- 安装日志：“/var/log/wps-read-aloud-install.log”
-
-## 构建命令
-
-列出全部目标：
-
-    python3 packaging/build_all.py --list
+    python packaging/build_all.py --list
 
 构建全部目标：
 
-    python3 packaging/build_all.py
+    python packaging/build_all.py
 
-按需构建单个目标时，使用 “--list” 输出的目标编号：
+构建单个 Linux 目标：
 
-    python3 packaging/build_all.py --target kylin-amd64
-    python3 packaging/build_all.py --target kylin-arm64
-    python3 packaging/build_all.py --target uos-amd64
-    python3 packaging/build_all.py --target uos-arm64
+    python packaging/build_all.py --target kylin-amd64
+    python packaging/build_all.py --target kylin-arm64
+    python packaging/build_all.py --target uos-amd64
+    python packaging/build_all.py --target uos-arm64
 
 ## 升级兼容
 
-当前包名从旧版 “wps-read-aloud-zhangjingyao” 调整为 “wps-read-aloud-comate”。x64/ARM64 UOS V20 包和 x64/ARM64 银河麒麟 V10 及以上包之间也互相声明冲突和替换，避免同一台机器同时安装两个会注册同名 WPS 加载项、同名 systemd 服务和同一端口服务的包。
-
-安装脚本同时识别旧版和新版所有权标记，避免从旧版本升级时误判项目目录为外部目录。
+当前包名为 wps-read-aloud-comate。UOS 包名为 cn.wps-read-aloud-comate。打包脚本会声明旧包名冲突和替换关系，避免升级时出现文件归属冲突。

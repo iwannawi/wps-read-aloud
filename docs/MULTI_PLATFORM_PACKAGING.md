@@ -1,42 +1,47 @@
 # 多平台安装包方案
 
-本项目采用同一套源码、同一套 WPS JS 加载项和同一套语音模型，根据 CPU 架构和操作系统生成不同安装包。所有面向用户的环境表述统一使用“CPU 架构 + 操作系统名”的顺序。
+本项目使用同一套源码，根据目标环境生成不同安装包。环境名称统一写成“CPU 架构 + 操作系统名”。
 
-## 安装包分类
+## 交付矩阵
 
-| 分类 | CPU 架构 | 操作系统 | 安装包格式 | 文件名示例 |
-| --- | --- | --- | --- | --- |
-| x86/x64 Windows 10/11 | x86/x64 | Windows 10/11 | exe 安装程序 | wps-read-aloud-comate_1.0.39_windows.exe |
-| x64 银河麒麟 V10 及以上 | amd64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.39_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | arm64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.39_arm64.deb |
-| x64 UOS V20 | amd64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.39_amd64.deb |
-| ARM64 UOS V20 | arm64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.39_arm64.deb |
+| 目标 | 安装包 | 安装路径 | 启动方式 |
+| --- | --- | --- | --- |
+| x86/x64 Windows 10/11 | wps-read-aloud-comate_1.1.0_windows.exe | 用户选择的程序目录 | 当前用户登录自启动 |
+| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.0_amd64.deb | /opt/wps-read-aloud-comate | systemd |
+| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.0_arm64.deb | /opt/wps-read-aloud-comate | systemd |
+| x64 UOS V20 | cn.wps-read-aloud-comate_1.1.0_amd64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
+| ARM64 UOS V20 | cn.wps-read-aloud-comate_1.1.0_arm64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
 
-## 共用部分
+## 共用内容
 
-- addin：WPS JS 加载项前端。
+- addin：WPS JS 加载项。
 - daemon：本地朗读服务源码。
-- voices：语音模型文件。
-- third_party_licenses：第三方组件声明。
+- voices：离线语音模型。
+- third_party_licenses：许可证和第三方声明。
 
-## 平台差异
+## 差异内容
 
-- x64/ARM64 银河麒麟 V10 及以上包名为 “wps-read-aloud-comate”，安装路径为 “/opt/wps-read-aloud-comate”。
-- x64/ARM64 UOS V20 包名为 “cn.wps-read-aloud-comate”，安装路径为 “/opt/apps/cn.wps-read-aloud-comate/files”。
-- x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 使用 systemd 启动本地朗读服务。
-- x86/x64 Windows 10/11 使用当前用户登录自启动项启动本地朗读服务。
-- 当前 x86/x64 Windows 10/11 安装包内置本地朗读服务；由于加载项通过 127.0.0.1 调用独立服务，不注入 WPS 进程，因此可服务 32 位和 64 位 WPS。安装时仍会记录 WPS 位数，便于排查。
-- x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 deb 由 packaging/deb/build_deb.py 生成。
-- x86/x64 Windows 10/11 exe 安装程序由 packaging/windows/build_windows_package.py 生成。安装程序内嵌 Windows 专用 payload，运行后解压到临时目录并执行安装逻辑。
-- 原生语音引擎和动态库按 CPU 架构和操作系统放入 resources/runtime。
+| 目标 | 差异点 |
+| --- | --- |
+| x86/x64 Windows 10/11 | Windows daemon、Windows Sherpa-onnx、安装器界面、当前用户自启动。 |
+| x64 银河麒麟 V10 及以上 | x64 Linux daemon、x64 Linux Sherpa-onnx、Debian 控制脚本、systemd。 |
+| ARM64 银河麒麟 V10 及以上 | ARM64 Linux daemon、ARM64 Linux Sherpa-onnx、Debian 控制脚本、systemd。 |
+| x64 UOS V20 | x64 Linux daemon、x64 Linux Sherpa-onnx、UOS 应用目录、cn. 包名。 |
+| ARM64 UOS V20 | ARM64 Linux daemon、ARM64 Linux Sherpa-onnx、UOS 应用目录、cn. 包名。 |
 
-## 构建入口
+Windows 加载项通过 127.0.0.1 调用独立服务，不向 WPS 进程注入 DLL。同一套 Windows 服务可服务 32 位和 64 位 WPS，安装日志仍会记录 WPS 位数。
 
-列出支持目标：
+## 构建命令
+
+列出目标：
 
     python packaging/build_all.py --list
 
-构建单个目标示例：
+构建全部目标：
+
+    python packaging/build_all.py
+
+构建单个目标：
 
     python packaging/build_all.py --target windows
     python packaging/build_all.py --target kylin-amd64
@@ -44,27 +49,17 @@
     python packaging/build_all.py --target uos-amd64
     python packaging/build_all.py --target uos-arm64
 
-构建全部目标：
-
-    python packaging/build_all.py
-
-如果目标 CPU 架构和操作系统缺少 daemon 二进制、sherpa-onnx 运行时或依赖库，脚本会停止并提示缺失路径，避免生成不可用安装包。
-
-## 发布要求
-
-正式出版本时必须同时生成五类安装包及其 SHA256 文件。任何一个目标缺少安装包、校验文件、daemon 二进制、Sherpa ONNX 运行时或模型文件，都不得创建 GitHub Release。
-
-发布前检查入口：
+## 发布前检查
 
     python packaging/verify_release_artifacts.py
 
-该检查会确认：
-- 五个安装包全部存在。
-- 五个 SHA256 文件全部存在且内容正确。
-- “CHECKSUMS.txt” 与五个安装包完全一致。
-- x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 包只包含 systemd 服务、对应架构 daemon、对应架构 Sherpa ONNX 运行时和共用语音模型。
-- x86/x64 Windows 10/11 包只包含 Windows 安装脚本、Windows daemon、Windows Sherpa ONNX 运行时和共用语音模型。
-- 安装包内不得混入 Piper、eSpeak NG 等已弃用资源。
-- 安装包内不得混入其他 CPU 架构或操作系统专用二进制和服务文件。
+检查项：
 
-旧版手工安装脚本已删除。正式交付只能使用按目标环境生成的安装包，不能直接复制本地 “engines” 目录。
+- 五个安装包全部存在。
+- 五个 SHA256 文件全部存在。
+- CHECKSUMS.txt 与安装包一致。
+- 每个安装包只包含本目标需要的二进制和服务文件。
+- 不包含 Piper、eSpeak NG 等废弃资源。
+- 不包含内部经验文档。
+
+任何目标缺失运行时、模型、daemon 或校验文件，都不得创建 Release。

@@ -1,4 +1,4 @@
-# 银河麒麟/Linux 交付项目统一使用 LF，避免 Windows 本机构建时混入 CRLF。
+# 跨平台交付项目统一使用 LF，避免 Windows 本机构建时混入 CRLF。
 * text=auto eol=lf
 
 *.sh text eol=lf

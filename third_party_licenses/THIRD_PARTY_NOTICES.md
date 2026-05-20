@@ -5,7 +5,17 @@
 开发者：Zhang Jingyao
 发布时间：20260520
 
-本软件包内置离线语音运行组件，用于在 x86/x64 Windows 10/11、x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 目标环境上提供本地文档朗读能力。第三方组件仅安装在本项目专用安装目录下，不写入系统公共库目录。
+本软件包内置离线语音运行组件，用于在以下目标环境提供本地文档朗读能力：
+
+| CPU 架构 + 操作系统 | 安装位置 |
+| --- | --- |
+| x86/x64 Windows 10/11 | 用户选择的程序目录 |
+| x64 银河麒麟 V10 及以上 | /opt/wps-read-aloud-comate |
+| ARM64 银河麒麟 V10 及以上 | /opt/wps-read-aloud-comate |
+| x64 UOS V20 | /opt/apps/cn.wps-read-aloud-comate/files |
+| ARM64 UOS V20 | /opt/apps/cn.wps-read-aloud-comate/files |
+
+第三方组件仅安装在本项目专用目录下，不写入系统公共库目录。
 
 ## 组件清单
 

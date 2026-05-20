@@ -1,75 +1,87 @@
 # Git 与 GitHub 版本管理规范
 
+## 项目标识
+
+| 项目 | 值 |
+| --- | --- |
+| 本地项目名 | wps-read-aloud-comate |
+| GitHub 仓库 | iwannawi/wps-read-aloud-comate |
+| 默认分支 | main |
+| 安装包基础名 | wps-read-aloud-comate |
+
 ## 管理范围
 
-源码仓库提交加载项源代码、服务端源代码、打包脚本、配置模板、说明文档和许可证文件。
+Git 保存源码、脚本、配置、文档和许可证。
 
-普通 Git 提交不直接纳入以下大文件：
-- “dist/” 发布安装包和构建出的二进制文件
-- “engines/” 离线语音引擎
-- “voices/” 语音模型
-- “tools/” 本地工具链
-- “build/”、“.gocache*”、“downloads/” 等缓存目录
+以下内容不进入普通 Git 提交：
 
-这些大文件应放到 GitHub Release 附件、组织制品库或受控内网文件服务器。
+- dist 发布安装包和构建产物。
+- engines 离线语音引擎。
+- voices 语音模型。
+- tools 本地工具链。
+- build、downloads、Go 缓存和临时文件。
+
+大文件通过 GitHub Release、组织制品库或受控内网文件服务器交付。
 
 ## 分支策略
 
-- “main”：稳定交付分支，只合入已验证版本。
-- 临时开发分支仅用于隔离风险，发布前合回 “main”。
-- 当前远端仓库应只保留 “main” 作为长期分支。
+- main 是稳定交付分支。
+- 临时开发分支只用于隔离风险，发布前合回 main。
+- 远端仓库长期只保留 main。
 
-## 版本号与标签
+## 版本号规则
 
-版本号遵循 “主版本.次版本.修订号”，例如 “1.0.39”。
+版本号采用“主版本.次版本.修订号”。
 
-发布标签格式：
+| 类型 | 触发条件 | 示例 |
+| --- | --- | --- |
+| 主版本 | 架构重构、安装方式不兼容、核心能力大幅改变 | 2.0.0 |
+| 次版本 | 新平台、新安装包类型、重要能力升级、交付规范升级 | 1.1.0 |
+| 修订号 | 缺陷修复、文案优化、兼容性小改 | 1.1.1 |
 
-    v1.0.39-20260520
+本项目从 1.1.0 开始按此规则发布。标签格式为：
 
-标签日期使用实际发布日。
+    v1.1.0-20260520
 
-## Codex 自动发布流程
+Release 名称格式为：
 
-后续每次修改由 Codex 自动执行以下流程，用户不需要手动操作：
+    wps-read-aloud-comate 1.1.0 20260520
+
+## 自动发布流程
+
+正式版本由 Codex 自动执行：
 
 1. 审查变更范围。
-2. 更新版本号、发布日期和中文说明文件。
-3. 同步加载项文件到服务端内嵌目录。
-4. 执行代码检查、XML 检查和打包检查；只有修改 daemon 代码或首次缺少可复用 daemon 二进制时，才执行 Go 编译。
-5. 使用 “python packaging/build_all.py” 构建五类安装包，不允许只构建单个安装包后发布版本。
-6. 计算并记录五类安装包的 SHA256。
-7. 提交到 Git。
-8. 使用 “scripts/push_github.ps1” 推送 “main” 和发布标签。
-9. 创建发布标签。
-10. 使用 “scripts/publish_github_release.ps1” 在 GitHub 创建同名 Release。
-11. 在 Release 说明里写入版本变更、已知限制和 SHA256，并上传五类安装包及其 “.sha256” 附件。
+2. 更新版本号、发布日期和发布说明。
+3. 同步 addin 到 Go embed 目录。
+4. 执行语法检查、代码检查和打包检查。
+5. 构建五类安装包。
+6. 计算 SHA256。
+7. 提交 Git。
+8. 推送 main 和版本标签。
+9. 创建 GitHub Release。
+10. 上传五类安装包和校验文件。
 
-## 可复用发布脚本
+## 发布脚本
 
-GitHub 推送和 Release 发布使用仓库内的常驻脚本，不再为每个版本生成临时脚本：
+推送：
 
-    .\scripts\push_github.ps1 -Tag v1.0.39-20260520
-    .\scripts\publish_github_release.ps1 -Version 1.0.39 -ReleaseDate 20260520
+    .\scripts\push_github.ps1 -Tag v1.1.0-20260520
 
-脚本使用 HTTPS 认证，不使用 SSH。认证优先级如下：
+发布 Release：
 
-1. 优先读取 GitHub CLI 的 “gh auth token”。
-2. 如果 GitHub CLI 未登录，则读取本机 Git Credential Manager 中保存的 GitHub 凭据。
-3. 只有两者都不可用时，才使用安全输入框提示输入 token。
+    .\scripts\publish_github_release.ps1 -Version 1.1.0 -ReleaseDate 20260520
 
-脚本会在使用 token 前调用 GitHub API，并用同一 token 执行 “git ls-remote” 做 HTTPS Git 访问校验；如果发现 “gh” 或 Git Credential Manager 中保存的 token 不能访问当前仓库，会跳过该凭据并提示重新输入。通过安全输入框输入的新 token 会写回 Git Credential Manager，后续推送和 Release 发布应自动读取本机凭据，不再反复弹出 GitHub 认证窗口。
+脚本使用 HTTPS，不使用 SSH。认证优先读取 GitHub CLI，其次读取 Git Credential Manager。脚本不得把 token 写入源码、日志或 Git remote。
 
-脚本日志不会输出 token 或 Basic 认证头。完成一次 “gh auth login” 或 Git Credential Manager 登录后，后续推送和 Release 发布应自动读取本机凭据。
+## 构建策略
 
-## 前端小改打包
+如果只修改文档、图标、弹窗样式或加载项前端，可复用已有 daemon 二进制。修改 Go 服务、安装脚本、运行时或模型时必须重新编译并重新打包。
 
-当前版本中，服务版本号由安装目录中的 “version.json” 提供。仅修改加载项前端、图标、弹窗样式或说明文件时，不需要重新编译 Go 服务；打包脚本会从当前 “dist” 中对应架构的 daemon 二进制或最近一个已生成的 “.deb” 中复用 daemon 二进制。
+正式发布必须同时交付：
 
-当前交付包命名示例：
-
-    wps-read-aloud-comate_1.0.39_windows.exe
-    wps-read-aloud-comate_1.0.39_amd64.deb
-    wps-read-aloud-comate_1.0.39_arm64.deb
-    cn.wps-read-aloud-comate_1.0.39_amd64.deb
-    cn.wps-read-aloud-comate_1.0.39_arm64.deb
+    wps-read-aloud-comate_1.1.0_windows.exe
+    wps-read-aloud-comate_1.1.0_amd64.deb
+    wps-read-aloud-comate_1.1.0_arm64.deb
+    cn.wps-read-aloud-comate_1.1.0_amd64.deb
+    cn.wps-read-aloud-comate_1.1.0_arm64.deb
