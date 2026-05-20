@@ -23,11 +23,38 @@
     return el;
   }
 
+  function queryValue(name) {
+    var query = window.location.search || "";
+    if (query.charAt(0) === "?") {
+      query = query.slice(1);
+    }
+    var pairs = query.split("&");
+    for (var i = 0; i < pairs.length; i += 1) {
+      var pair = pairs[i];
+      if (!pair) {
+        continue;
+      }
+      var equal = pair.indexOf("=");
+      var key = equal >= 0 ? pair.slice(0, equal) : pair;
+      var value = equal >= 0 ? pair.slice(equal + 1) : "";
+      try {
+        key = decodeURIComponent(key.replace(/\+/g, " "));
+      } catch (_) {}
+      if (key === name) {
+        try {
+          return decodeURIComponent(value.replace(/\+/g, " "));
+        } catch (_) {
+          return value;
+        }
+      }
+    }
+    return "";
+  }
+
   function render() {
-    var params = new URLSearchParams(window.location.search);
     var payload = {};
     try {
-      payload = JSON.parse(fromBase64(params.get("payload")));
+      payload = JSON.parse(fromBase64(queryValue("payload")));
     } catch (_) {
       payload = {};
     }

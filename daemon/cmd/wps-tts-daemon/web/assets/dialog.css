@@ -78,7 +78,8 @@ dt {
 dd {
   margin: 0;
   color: #111827;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 body.about .dialog {
@@ -96,13 +97,19 @@ body.about #dialogMessage {
 }
 
 body.about dl {
-  grid-template-columns: 130px minmax(0, 1fr);
-  row-gap: 8px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  row-gap: 7px;
   max-width: 720px;
+  font-size: 14px;
 }
 
 body.about dd {
   white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+body.about dt {
+  white-space: nowrap;
 }
 
 .detail-item,

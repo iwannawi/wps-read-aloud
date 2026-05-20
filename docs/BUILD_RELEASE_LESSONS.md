@@ -38,6 +38,7 @@
 - 2026-05-20 复盘：启动朗读小窗如果仍出现滚动条，除了给 “body.compact” 清最小尺寸，也要给 “html.compact” 清 “min-width/min-height”。否则 “html, body” 的全局最小尺寸会继续撑出滚动条。
 - 2026-05-20 复盘：x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 同版本重装时，如果端口已由本项目自己的旧服务占用，preinst 不应直接阻断。应同时检查 marker、service 文件路径和 “/health” 响应，确认是本项目服务后允许 dpkg 继续覆盖安装。
 - 2026-05-20 复盘：前端把 API 基址切成同源相对路径时，不能连弹窗地址一起改成 “/dialog.html”。x86/x64 Windows 10/11 WPS 的 ShowDialog 对相对地址兼容性差，容易出现空白窗体；ShowDialog 应使用 “http://127.0.0.1:19860/dialog.html?...” 绝对地址。WPS 环境下 ShowDialog 失败后也不要回退到 “window.open”，否则会额外调起外部浏览器。
+- 2026-05-20 复盘：x86/x64 Windows 10/11 打包的 Sherpa-onnx 当前参数是 “--vits-tokens”，不是旧版或其他封装里的 “--tokens”；也不支持 “--tts-sample-rate”。如果 Windows 端出现 “Sherpa-onnx 语音引擎启动失败”，先用 payload 内的 “sherpa-onnx-offline-tts.exe --help” 和完整参数直接合成 WAV，不要只看文件是否存在。
 - x86/x64 Windows 10/11 覆盖安装前必须先停止当前安装目录下正在运行的旧版 “wps-tts-daemon.exe”。否则 “Copy-Item” 会因为 exe 被占用报 “being used by another process”，导致升级安装失败。
 - x86/x64 Windows 10/11 安装期健康检查不要只等 10 到 15 秒。受杀毒扫描、低性能机器或首次启动影响，daemon 可能在安装器判失败后才完成启动。当前使用 60 秒等待窗口。
 - x86/x64 Windows 10/11 安装前必须探测 WPS 客户端：至少检查 “wps.exe” 路径、产品版本和 PE 位数。本项目不是进程内 DLL 插件，WPS JS 加载项通过 127.0.0.1 调用独立本地朗读服务，因此本地服务位数不需要和 WPS 位数一致；位数检测用于日志和故障定位，不应阻止 64 位 WPS 安装。

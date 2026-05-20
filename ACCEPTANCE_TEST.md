@@ -2,30 +2,30 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.0.38
+版本：1.0.39
 目标环境：x86/x64 Windows 10/11、x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20。x86/x64 Windows 10/11 要求 WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版；x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 要求 WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux。
 
 ## 安装测试
 
 x86/x64 Windows 10/11：
 
-    运行 wps-read-aloud-comate_1.0.38_windows.exe
+    运行 wps-read-aloud-comate_1.0.39_windows.exe
 
 x64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i wps-read-aloud-comate_1.0.38_amd64.deb
+    sudo dpkg -i wps-read-aloud-comate_1.0.39_amd64.deb
 
 ARM64 银河麒麟 V10 及以上：
 
-    sudo dpkg -i wps-read-aloud-comate_1.0.38_arm64.deb
+    sudo dpkg -i wps-read-aloud-comate_1.0.39_arm64.deb
 
 x64 UOS V20：
 
-    sudo dpkg -i cn.wps-read-aloud-comate_1.0.38_amd64.deb
+    sudo dpkg -i cn.wps-read-aloud-comate_1.0.39_amd64.deb
 
 ARM64 UOS V20：
 
-    sudo dpkg -i cn.wps-read-aloud-comate_1.0.38_arm64.deb
+    sudo dpkg -i cn.wps-read-aloud-comate_1.0.39_arm64.deb
 
 x86/x64 Windows 10/11 安装包安装前应检测本机 WPS Office：
 
@@ -76,12 +76,12 @@ x86/x64 Windows 10/11 安装包安装前应检测本机 WPS Office：
 
 示例文本：
 
-    这是 WPS 2026 read aloud test，版本是 v1.0.38。
+    这是 WPS 2026 read aloud test，版本是 v1.0.39。
 
 预期结果：
 - 中文正常朗读。
 - 英文和数字不被跳过。
-- 英文和数字按单字符中文读法朗读，例如 “WPS”、“2026”、“v1.0.38” 会被逐字符读出。
+- 英文和数字按单字符中文读法朗读，例如 “WPS”、“2026”、“v1.0.39” 会被逐字符读出。
 - 逗号、顿号、分号、冒号等句内语义标点处应有自然停顿；双引号、单引号、书名号、括号等成对符号不额外增加停顿。
 - 默认 “1.2x” 语速下，句内标准停顿按约 “400ms” 设计，句末追加约 “600ms” 静音；切换其他语速时停顿随语速等比例缩放。
 

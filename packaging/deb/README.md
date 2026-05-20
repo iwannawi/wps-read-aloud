@@ -6,10 +6,10 @@
 
 当前版本的 x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20 输出文件为：
 
-    dist/wps-read-aloud-comate_1.0.38_amd64.deb
-    dist/wps-read-aloud-comate_1.0.38_arm64.deb
-    dist/cn.wps-read-aloud-comate_1.0.38_amd64.deb
-    dist/cn.wps-read-aloud-comate_1.0.38_arm64.deb
+    dist/wps-read-aloud-comate_1.0.39_amd64.deb
+    dist/wps-read-aloud-comate_1.0.39_arm64.deb
+    dist/cn.wps-read-aloud-comate_1.0.39_amd64.deb
+    dist/cn.wps-read-aloud-comate_1.0.39_arm64.deb
 
 x64/ARM64 银河麒麟 V10 及以上包的内部包名为 “wps-read-aloud-comate”。x64/ARM64 UOS V20 包按照 UOS 应用包名习惯使用 “cn.wps-read-aloud-comate”。文件名统一采用 “包名_版本_架构.deb”。
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -146,21 +147,35 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	if fileExists(s.cfg.Sherpa.Bin) && fileExists(s.cfg.Sherpa.VitsModel) && fileExists(s.cfg.Sherpa.VitsLexicon) && fileExists(s.cfg.Sherpa.VitsTokens) {
 		engine = "sherpa-onnx"
 	}
+	probe := audioProbeInfo()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":           engine == "sherpa-onnx",
 		"version":      appVersion(s.root),
 		"engine":       engine,
-		"audio_player": "Windows SoundPlayer",
+		"audio_player": probe["selected"],
+		"audio_probe":  probe,
 		"message":      "Windows 本地离线朗读服务已启动。",
 	})
 }
 
 func (s *Server) audioProbe(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"version":  appVersion(s.root),
-		"selected": "Windows SoundPlayer",
-		"results": []map[string]string{{"name": "Windows SoundPlayer", "status": "ok"}},
-	})
+	probe := audioProbeInfo()
+	probe["version"] = appVersion(s.root)
+	writeJSON(w, http.StatusOK, probe)
+}
+
+func audioProbeInfo() map[string]any {
+	return map[string]any{
+		"selected":  "Windows SoundPlayer",
+		"probed_at": time.Now().Format("2006-01-02 15:04:05"),
+		"results": []map[string]string{
+			{
+				"name":    "Windows SoundPlayer",
+				"status":  "ok",
+				"message": "使用 Windows 内置 SoundPlayer 播放 WAV 音频。",
+			},
+		},
+	}
 }
 
 func (s *Server) selftest(w http.ResponseWriter, r *http.Request) {
@@ -344,7 +359,7 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 	args := []string{
 		"--vits-model=" + s.cfg.Sherpa.VitsModel,
 		"--vits-lexicon=" + s.cfg.Sherpa.VitsLexicon,
-		"--tokens=" + s.cfg.Sherpa.VitsTokens,
+		"--vits-tokens=" + s.cfg.Sherpa.VitsTokens,
 		"--sid=" + strconv.Itoa(s.cfg.Sherpa.VitsSpeakerID),
 		"--num-threads=" + strconv.Itoa(s.cfg.Sherpa.NumThreads),
 		"--vits-noise-scale=0.667",
@@ -352,22 +367,27 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 		"--vits-length-scale=" + fmt.Sprintf("%.3f", 1/clampRate(rate)),
 		"--output-filename=" + tmpPath,
 	}
-	if s.cfg.Sherpa.TargetSampleRate > 0 {
-		args = append(args, "--tts-sample-rate="+strconv.Itoa(s.cfg.Sherpa.TargetSampleRate))
-	}
 	if fsts := existingRuleFsts(s.cfg.Sherpa.VitsRuleFsts); fsts != "" {
 		args = append(args, "--tts-rule-fsts="+fsts)
 	}
 	args = append(args, preprocessFanchenText(text, rate))
 	cmd := exec.CommandContext(ctx, s.cfg.Sherpa.Bin, args...)
 	cmd.Dir = s.root
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
 	s.setCurrent(cmd)
 	err = cmd.Run()
 	s.clearCurrent(cmd)
 	if err != nil {
 		os.Remove(tmpPath)
+		detail := strings.TrimSpace(output.String())
+		if len(detail) > 1200 {
+			detail = detail[:1200]
+		}
+		if detail != "" {
+			return "", fmt.Errorf("sherpa-onnx failed: %w: %s", err, detail)
+		}
 		return "", fmt.Errorf("sherpa-onnx failed: %w", err)
 	}
 	return tmpPath, nil

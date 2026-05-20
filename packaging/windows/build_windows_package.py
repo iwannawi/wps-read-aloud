@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = os.environ.get("VERSION", "1.0.38")
+VERSION = os.environ.get("VERSION", "1.0.39")
 RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260520")
 WINDOWS_ARCH = os.environ.get("WINDOWS_ARCH", "386")
 ARCH_LABEL = "x86" if WINDOWS_ARCH in {"386", "x86"} else WINDOWS_ARCH
@@ -20,6 +20,7 @@ VOICE = ROOT / "voices" / "sherpa"
 ADDIN = ROOT / "addin"
 EXE = OUT / f"{PKG_NAME}_{VERSION}_windows.exe"
 INSTALLER_SRC = ROOT / "packaging" / "windows" / "installer"
+INSTALLER_ASSETS = ROOT / "packaging" / "windows" / "assets"
 
 
 def require(path: Path, message: str) -> None:
@@ -146,6 +147,8 @@ def main() -> None:
     shutil.copy2(ROOT / "packaging" / "windows" / "install.ps1", BUILD / "install.ps1")
     shutil.copy2(ROOT / "packaging" / "windows" / "install-ui.ps1", BUILD / "install-ui.ps1")
     shutil.copy2(ROOT / "packaging" / "windows" / "uninstall.ps1", BUILD / "uninstall.ps1")
+    if INSTALLER_ASSETS.is_dir():
+        copytree(INSTALLER_ASSETS, BUILD / "installer-assets")
     write_version_json(app / "version.json")
     write_windows_config(app / "config.yaml")
     payload_zip = BUILD / "payload.zip"

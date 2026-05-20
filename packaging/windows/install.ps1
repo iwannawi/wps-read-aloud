@@ -541,7 +541,7 @@ try {
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
   $KnownNames = @($AddinInternalName, $AddinDisplayName)
   $OnlineEntry = @"
-<jspluginonline name="$AddinDisplayName" type="wps" enable="enable_dev" install="$LocalUrl" url="$LocalUrl" debug="" desc="$AddinDescription"/>
+<jspluginonline name="$AddinDisplayName" type="wps" enable="enable" install="$LocalUrl" url="$LocalUrl" debug="" desc="$AddinDescription"/>
 "@
   $LocalEntry = @"
 <jsplugin name="$AddinDisplayName" type="wps" url="$FileUrl" version="$AddinVersion" desc="$AddinDescription">

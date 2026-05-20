@@ -43,16 +43,19 @@
     var title = options && options.title ? options.title : "文档朗读";
     var width = options && options.width ? Number(options.width) : 880;
     var height = options && options.height ? Number(options.height) : 680;
+    var modal = !(options && options.startup);
     var inWps = !!((window.wps && typeof window.wps.ShowDialog === "function") ||
       (window.Application && typeof window.Application.ShowDialog === "function"));
 
     try {
       if (window.wps && typeof window.wps.ShowDialog === "function") {
-        window.wps.ShowDialog(url, title, width, height, false);
+        window.wps.ShowDialog(url, title, width, height, modal);
+        focusWpsWindow();
         return null;
       }
       if (window.Application && typeof window.Application.ShowDialog === "function") {
-        window.Application.ShowDialog(url, title, width, height, false);
+        window.Application.ShowDialog(url, title, width, height, modal);
+        focusWpsWindow();
         return null;
       }
     } catch (_) {
@@ -75,6 +78,20 @@
     }
     dialogFallback(options);
     return null;
+  }
+
+  function focusWpsWindow() {
+    setTimeout(function () {
+      try {
+        var app = getWpsApplication();
+        if (app && typeof app.Activate === "function") {
+          app.Activate();
+        }
+        if (app && app.ActiveWindow && typeof app.ActiveWindow.Activate === "function") {
+          app.ActiveWindow.Activate();
+        }
+      } catch (_) {}
+    }, 100);
   }
 
   function showStartupDialog() {
@@ -683,20 +700,47 @@
       }
       if (health.ok) {
         var probe = health.audio_probe || {};
+        if (!probe.results) {
+          try {
+            probe = await request("/audio/probe");
+          } catch (_) {
+            probe = {};
+          }
+        }
+        var engineTest = "已通过";
+        try {
+          await request("/selftest");
+        } catch (selftestError) {
+          showDialog({
+            title: "服务状态",
+            variant: "error",
+            width: 760,
+            height: 520,
+            message: "本地朗读服务已启动，但语音引擎自检未通过。",
+            fields: [
+              { label: "服务版本", value: health.version },
+              { label: "语音引擎", value: health.engine || "未知" },
+              { label: "当前播放器", value: health.audio_player || probe.selected || "未检测到" },
+              { label: "自检结果", value: userMessage(selftestError) }
+            ]
+          });
+          return;
+        }
         var probeResults = probe.results || [];
         var probeSummary = probeResults.length
-          ? "已检测 " + probeResults.length + " 个候选播放器，当前使用 " + (health.audio_player || "未检测到") + "。"
+          ? "已检测 " + probeResults.length + " 个候选播放器，当前使用 " + (health.audio_player || probe.selected || "未检测到") + "。"
           : "已完成播放器探测。";
         showDialog({
           title: "服务状态",
           variant: "success",
-          width: 860,
-          height: 600,
+          width: 800,
+          height: 540,
           message: "本地朗读服务运行正常",
           fields: [
             { label: "服务版本", value: health.version },
             { label: "语音引擎", value: health.engine || "未知" },
-            { label: "当前播放器", value: health.audio_player || "未检测到" },
+            { label: "语音自检", value: engineTest },
+            { label: "当前播放器", value: health.audio_player || probe.selected || "未检测到" },
             { label: "探测时间", value: probe.probed_at || "尚未探测" },
             { label: "探测摘要", value: probeSummary }
           ]
@@ -718,13 +762,13 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.0.38" },
+        { label: "版本", value: "1.0.39" },
         { label: "发布日期", value: "20260520" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
         { label: "适用操作系统", value: "x86/x64 Windows 10/11；x64/ARM64 银河麒麟 V10 及以上；x64/ARM64 UOS V20" },
-        { label: "x86/x64 Windows 10/11", value: "WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版" },
-        { label: "x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20", value: "WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux" },
+        { label: "Windows 要求", value: "x86/x64 Windows 10/11：WPS Office 2019 或更高版本，推荐 WPS Office 最新稳定版" },
+        { label: "Linux 要求", value: "x64/ARM64 银河麒麟 V10 及以上、x64/ARM64 UOS V20：WPS Office 2019 或更高版本，推荐最新版 WPS Office for Linux" },
         { label: "服务地址", value: "127.0.0.1:19860" },
         { label: "版权", value: "Copyright © 2026 Zhang Jingyao" },
         { label: "开源组件", value: "本软件包含第三方开源组件，相关版权和许可见第三方声明。" }

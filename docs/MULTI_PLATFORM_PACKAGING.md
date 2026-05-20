@@ -6,11 +6,11 @@
 
 | 分类 | CPU 架构 | 操作系统 | 安装包格式 | 文件名示例 |
 | --- | --- | --- | --- | --- |
-| x86/x64 Windows 10/11 | x86/x64 | Windows 10/11 | exe 安装程序 | wps-read-aloud-comate_1.0.38_windows.exe |
-| x64 银河麒麟 V10 及以上 | amd64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.38_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | arm64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.38_arm64.deb |
-| x64 UOS V20 | amd64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.38_amd64.deb |
-| ARM64 UOS V20 | arm64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.38_arm64.deb |
+| x86/x64 Windows 10/11 | x86/x64 | Windows 10/11 | exe 安装程序 | wps-read-aloud-comate_1.0.39_windows.exe |
+| x64 银河麒麟 V10 及以上 | amd64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.39_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | arm64 | 银河麒麟 V10 及以上 | deb | wps-read-aloud-comate_1.0.39_arm64.deb |
+| x64 UOS V20 | amd64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.39_amd64.deb |
+| ARM64 UOS V20 | arm64 | UOS V20 | deb | cn.wps-read-aloud-comate_1.0.39_arm64.deb |
 
 ## 共用部分
 
