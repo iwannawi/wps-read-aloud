@@ -1234,6 +1234,29 @@ func preprocessFanchenText(text string, rate float64) string {
 		}
 		return " " + strings.Join(parts, " ") + " "
 	})
+	text = strings.NewReplacer(
+		"+", " 加 ",
+		"＋", " 加 ",
+		"-", " 减 ",
+		"－", " 减 ",
+		"−", " 减 ",
+		"*", " 乘 ",
+		"×", " 乘 ",
+		"/", " 除 ",
+		"÷", " 除 ",
+		"=", " 等于 ",
+		"＝", " 等于 ",
+		"≈", " 约等于 ",
+		"≠", " 不等于 ",
+		"<=", " 小于等于 ",
+		"≤", " 小于等于 ",
+		">=", " 大于等于 ",
+		"≥", " 大于等于 ",
+		"<", " 小于 ",
+		">", " 大于 ",
+		"%", " 百分号 ",
+		"％", " 百分号 ",
+	).Replace(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
 }
 

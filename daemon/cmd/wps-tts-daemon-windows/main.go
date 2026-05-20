@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -54,22 +55,34 @@ type Server struct {
 	cfg     Config
 	mu      sync.Mutex
 	session *Session
-	current *exec.Cmd
+	current map[*exec.Cmd]bool
 }
 
 type Session struct {
-	id      string
-	server  *Server
-	ctx     context.Context
-	cancel  context.CancelFunc
+	id        string
+	server    *Server
+	ctx       context.Context
+	cancel    context.CancelFunc
+	sentences []ReadSentence
+	rate      float64
+
 	mu      sync.Mutex
 	state   string
 	message string
 	index   int
 	total   int
+	cache   map[int]*audioCacheEntry
+}
+
+type audioCacheEntry struct {
+	index int
+	path  string
+	err   error
+	ready chan struct{}
 }
 
 const (
+	prefetchTextTarget           = 100
 	pauseBaseRate                = 1.2
 	standardPauseMsAtBaseRate   = 400
 	sentenceEndPauseMsAtBaseRate = 600
@@ -86,7 +99,7 @@ func main() {
 		log.Printf("load config failed, using defaults: %v", err)
 	}
 	cfg = absolutizeConfig(root, cfg)
-	server := &Server{root: root, cfg: cfg}
+	server := &Server{root: root, cfg: cfg, current: make(map[*exec.Cmd]bool)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.health)
 	mux.HandleFunc("/selftest", server.selftest)
@@ -220,12 +233,24 @@ func (s *Server) readStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	session := &Session{id: newID(), server: s, ctx: ctx, cancel: cancel, state: "preparing", message: "朗读服务正在启动，请耐心等待", index: -1, total: len(sentences)}
+	session := &Session{
+		id:        newID(),
+		server:    s,
+		ctx:       ctx,
+		cancel:    cancel,
+		sentences: sentences,
+		rate:      req.Rate,
+		state:     "preparing",
+		message:   "朗读服务正在启动，请耐心等待",
+		index:     -1,
+		total:     len(sentences),
+		cache:     make(map[int]*audioCacheEntry),
+	}
 	s.mu.Lock()
 	s.stopLocked()
 	s.session = session
 	s.mu.Unlock()
-	go session.run(sentences, req.Rate)
+	go session.run()
 	writeJSON(w, http.StatusOK, session.status())
 }
 
@@ -276,35 +301,53 @@ func (s *Server) stopLocked() {
 	if s.session != nil {
 		s.session.cancel()
 	}
-	if s.current != nil && s.current.Process != nil {
-		_ = s.current.Process.Kill()
+	for cmd := range s.current {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
 	}
-	s.current = nil
+	s.current = make(map[*exec.Cmd]bool)
 }
 
 func (s *Server) setCurrent(cmd *exec.Cmd) {
 	s.mu.Lock()
-	s.current = cmd
+	if s.current == nil {
+		s.current = make(map[*exec.Cmd]bool)
+	}
+	s.current[cmd] = true
 	s.mu.Unlock()
 }
 
 func (s *Server) clearCurrent(cmd *exec.Cmd) {
 	s.mu.Lock()
-	if s.current == cmd {
-		s.current = nil
-	}
+	delete(s.current, cmd)
 	s.mu.Unlock()
 }
 
-func (ss *Session) run(sentences []ReadSentence, rate float64) {
-	for i, sentence := range sentences {
+func (ss *Session) run() {
+	defer ss.cleanup()
+	warmup := ss.prefetchCount(0)
+	ss.setState("preparing", "朗读服务正在启动，请耐心等待", -1)
+	for i := 0; i < warmup; i++ {
+		entry := ss.ensureAudio(i)
+		if err := ss.waitEntry(entry); err != nil {
+			if ss.ctx.Err() != nil {
+				ss.setState("stopped", "朗读已停止", -1)
+				return
+			}
+			ss.setState("error", friendlyError(err), -1)
+			return
+		}
+	}
+	for i := range ss.sentences {
 		if ss.ctx.Err() != nil {
 			ss.setState("stopped", "朗读已停止", i)
 			return
 		}
+		entry := ss.ensureAudio(i)
+		ss.ensurePrefetch(i + 1)
 		ss.setState("synthesizing", "正在准备第 "+strconv.Itoa(i+1)+" 句", i)
-		wav, err := ss.server.synthesize(ss.ctx, sentence.Text, rate)
-		if err != nil {
+		if err := ss.waitEntry(entry); err != nil {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
@@ -313,9 +356,7 @@ func (ss *Session) run(sentences []ReadSentence, rate float64) {
 			return
 		}
 		ss.setState("playing", "正在朗读第 "+strconv.Itoa(i+1)+" 句", i)
-		err = ss.server.play(ss.ctx, wav)
-		_ = os.Remove(wav)
-		if err != nil {
+		if err := ss.server.play(ss.ctx, entry.path); err != nil {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
@@ -323,13 +364,103 @@ func (ss *Session) run(sentences []ReadSentence, rate float64) {
 			}
 			return
 		}
+		ss.removeCache(i)
 	}
-	ss.setState("done", "朗读完成", len(sentences)-1)
+	ss.setState("done", "朗读完成", len(ss.sentences)-1)
 	ss.server.mu.Lock()
 	if ss.server.session == ss {
 		ss.server.session = nil
 	}
 	ss.server.mu.Unlock()
+}
+
+func (ss *Session) ensurePrefetch(start int) {
+	count := ss.prefetchCount(start)
+	for i := start; i < start+count; i++ {
+		ss.ensureAudio(i)
+	}
+}
+
+func (ss *Session) prefetchCount(start int) int {
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(ss.sentences) {
+		return 0
+	}
+	count := 0
+	runes := 0
+	for i := start; i < len(ss.sentences); i++ {
+		count++
+		runes += len([]rune(ss.sentences[i].Text))
+		if runes >= prefetchTextTarget {
+			break
+		}
+	}
+	return count
+}
+
+func (ss *Session) ensureAudio(index int) *audioCacheEntry {
+	ss.mu.Lock()
+	if entry := ss.cache[index]; entry != nil {
+		ss.mu.Unlock()
+		return entry
+	}
+	entry := &audioCacheEntry{index: index, ready: make(chan struct{})}
+	ss.cache[index] = entry
+	text := ss.sentences[index].Text
+	rate := ss.rate
+	ss.mu.Unlock()
+
+	go func() {
+		path, err := ss.server.synthesize(ss.ctx, text, rate)
+		if err == nil && path != "" {
+			if pauseErr := appendSilenceToWavFile(path, sentenceEndPauseMs(rate)); pauseErr != nil {
+				os.Remove(path)
+				path = ""
+				err = pauseErr
+			}
+		}
+		entry.path = path
+		entry.err = err
+		close(entry.ready)
+	}()
+	return entry
+}
+
+func (ss *Session) waitEntry(entry *audioCacheEntry) error {
+	select {
+	case <-entry.ready:
+		return entry.err
+	case <-ss.ctx.Done():
+		return ss.ctx.Err()
+	}
+}
+
+func (ss *Session) removeCache(index int) {
+	ss.mu.Lock()
+	entry := ss.cache[index]
+	delete(ss.cache, index)
+	ss.mu.Unlock()
+	if entry != nil && entry.path != "" {
+		os.Remove(entry.path)
+	}
+}
+
+func (ss *Session) cleanup() {
+	ss.mu.Lock()
+	entries := make([]*audioCacheEntry, 0, len(ss.cache))
+	for _, entry := range ss.cache {
+		entries = append(entries, entry)
+	}
+	ss.cache = make(map[int]*audioCacheEntry)
+	ss.mu.Unlock()
+	for _, entry := range entries {
+		<-entry.ready
+		if entry.path != "" {
+			os.Remove(entry.path)
+		}
+	}
 }
 
 func (ss *Session) setState(state, message string, index int) {
@@ -418,6 +549,29 @@ func preprocessFanchenText(text string, rate float64) string {
 		}
 		return " " + strings.Join(parts, " ") + " "
 	})
+	text = strings.NewReplacer(
+		"+", " 加 ",
+		"＋", " 加 ",
+		"-", " 减 ",
+		"－", " 减 ",
+		"−", " 减 ",
+		"*", " 乘 ",
+		"×", " 乘 ",
+		"/", " 除 ",
+		"÷", " 除 ",
+		"=", " 等于 ",
+		"＝", " 等于 ",
+		"≈", " 约等于 ",
+		"≠", " 不等于 ",
+		"<=", " 小于等于 ",
+		"≤", " 小于等于 ",
+		">=", " 大于等于 ",
+		"≥", " 大于等于 ",
+		"<", " 小于 ",
+		">", " 大于 ",
+		"%", " 百分号 ",
+		"％", " 百分号 ",
+	).Replace(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
 }
 
@@ -478,6 +632,8 @@ func asciiCharSpeech(r rune) string {
 		return "杠"
 	case '_':
 		return "下划线"
+	case '+':
+		return "加"
 	}
 	switch unicode.ToUpper(r) {
 	case 'A':
@@ -534,6 +690,150 @@ func asciiCharSpeech(r rune) string {
 		return "兹"
 	}
 	return ""
+}
+
+type wavPCM struct {
+	format        uint16
+	channels      uint16
+	sampleRate    uint32
+	bitsPerSample uint16
+	data          []byte
+}
+
+func appendSilenceToWavFile(path string, pauseMs int) error {
+	if pauseMs <= 0 {
+		return nil
+	}
+	wav, err := readPCM16Wav(path)
+	if err != nil {
+		return err
+	}
+	wav.data = append(wav.data, silencePCM(wav, pauseMs)...)
+	tmp, err := os.CreateTemp(filepath.Dir(path), "wps-read-aloud-pause-*.wav")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if err := writePCM16Wav(tmp, wav, wav.data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return os.Rename(tmpPath, path)
+}
+
+func silencePCM(wav wavPCM, pauseMs int) []byte {
+	if pauseMs <= 0 || wav.sampleRate == 0 || wav.channels == 0 || wav.bitsPerSample == 0 {
+		return nil
+	}
+	bytesPerFrame := int(wav.channels) * int(wav.bitsPerSample) / 8
+	if bytesPerFrame <= 0 {
+		return nil
+	}
+	frames := int(uint64(wav.sampleRate) * uint64(pauseMs) / 1000)
+	return make([]byte, frames*bytesPerFrame)
+}
+
+func readPCM16Wav(path string) (wavPCM, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return wavPCM{}, err
+	}
+	if len(data) < 44 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
+		return wavPCM{}, errors.New("unsupported wav format")
+	}
+	offset := 12
+	var wav wavPCM
+	dataStart := -1
+	dataSize := 0
+	for offset+8 <= len(data) {
+		chunkID := string(data[offset : offset+4])
+		chunkSize := int(binary.LittleEndian.Uint32(data[offset+4 : offset+8]))
+		chunkData := offset + 8
+		if chunkData+chunkSize > len(data) {
+			break
+		}
+		switch chunkID {
+		case "fmt ":
+			if chunkSize >= 16 {
+				wav.format = binary.LittleEndian.Uint16(data[chunkData : chunkData+2])
+				wav.channels = binary.LittleEndian.Uint16(data[chunkData+2 : chunkData+4])
+				wav.sampleRate = binary.LittleEndian.Uint32(data[chunkData+4 : chunkData+8])
+				wav.bitsPerSample = binary.LittleEndian.Uint16(data[chunkData+14 : chunkData+16])
+			}
+		case "data":
+			dataStart = chunkData
+			dataSize = chunkSize
+		}
+		offset = chunkData + chunkSize
+		if offset%2 == 1 {
+			offset += 1
+		}
+	}
+	if wav.format != 1 || wav.channels != 1 || wav.bitsPerSample != 16 || dataStart < 0 {
+		return wavPCM{}, errors.New("unsupported wav encoding")
+	}
+	wav.data = append([]byte(nil), data[dataStart:dataStart+dataSize]...)
+	return wav, nil
+}
+
+func writePCM16Wav(w io.Writer, spec wavPCM, pcm []byte) error {
+	byteRate := spec.sampleRate * uint32(spec.channels) * uint32(spec.bitsPerSample) / 8
+	blockAlign := spec.channels * spec.bitsPerSample / 8
+	if _, err := w.Write([]byte("RIFF")); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(36+len(pcm))); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte("WAVEfmt ")); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(16)); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, spec.format); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, spec.channels); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, spec.sampleRate); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, byteRate); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, blockAlign); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, spec.bitsPerSample); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte("data")); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(len(pcm))); err != nil {
+		return err
+	}
+	_, err := w.Write(pcm)
+	return err
+}
+
+func sentenceEndPauseMs(rate float64) int {
+	return scaledPauseMs(sentenceEndPauseMsAtBaseRate, rate)
+}
+
+func scaledPauseMs(baseMs int, rate float64) int {
+	if baseMs <= 0 {
+		return 0
+	}
+	rate = clampRate(rate)
+	return int(float64(baseMs)*pauseBaseRate/rate + 0.5)
 }
 
 func existingRuleFsts(value string) string {

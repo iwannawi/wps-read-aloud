@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.0
+版本：1.1.1
 发布时间：20260520
 开发者：Zhang Jingyao
 
@@ -18,34 +18,32 @@
 
 ## 新增
 
-- 新增 Windows 安装器专属图标、头图和任务栏图标。
-- 新增 Windows 状态检查自检结果，显示语音引擎、播放器和探测时间。
+- 新增 Windows 朗读预合成队列，播放当前句时提前合成后续句。
+- 新增数学符号中文读法，覆盖加、减、乘、除、等于、大于、小于、百分号等常见符号。
 
 ## 变更
 
-- 项目发布版本升级为 1.1.0，后续按语义化版本规则管理。
-- Release 名称改为“wps-read-aloud-comate 版本号 发布时间”。
-- README、验收说明、多平台打包说明和版本管理说明改为表格化、短句化表达。
-- WPS 加载项注册改为正式启用模式，不再显示“打开JS调试器”入口。
-- 关于朗读弹窗压缩长平台描述，降低文字重叠风险。
+- Windows 安装界面改为绘制式头部区域，使用透明背景 logo，避免白底遮挡和文字不可见。
+- 首次授权提示文案改短，降低用户理解成本。
+- 超长文档超过 1000 句时不再额外弹窗，只在 WPS 状态栏提示本次朗读范围。
+- GitHub Release 发布流程改为使用 UTF-8 安全方式生成说明文件，避免中文乱码。
 
 ## 修复
 
-- 修复 Windows 点击“开始朗读”后 Sherpa-onnx 启动失败的问题。
-- 修复 Windows 语音引擎参数不兼容问题，改用当前 Sherpa-onnx 支持的参数组合。
-- 修复部分 WPS 内置浏览器不支持 URLSearchParams 时弹窗空白的问题。
-- 修复状态检查显示“尚未探测”的问题。
-- 修复内部经验文档误进入安装包的风险，发布校验会拦截此类文件。
+- 修复 Windows 朗读上一句和下一句之间等待时间过长的问题。
+- 修复 Windows 安装器 logo 白底和头部文字显示异常的问题。
+- 修复旧 WPS 加载项注册项残留可能导致“打开JS调试器”入口继续显示的问题。
+- 修复 Release 草稿发布超时后可能留下乱码说明和不完整附件的问题。
 
 ## 交付文件
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.0_windows.exe |
-| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.0_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.0_arm64.deb |
-| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.0_amd64.deb |
-| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.0_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.1_windows.exe |
+| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.1_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.1_arm64.deb |
+| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.1_amd64.deb |
+| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.1_arm64.deb |
 
 ## 已知限制
 

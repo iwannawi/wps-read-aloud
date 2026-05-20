@@ -96,25 +96,31 @@ if (Test-Path $iconPath) {
   }
 }
 
-$header = New-Object System.Windows.Forms.PictureBox
+$header = New-Object System.Windows.Forms.Panel
 $header.Location = New-Object System.Drawing.Point(0, 0)
 $header.Size = New-Object System.Drawing.Size(720, 150)
-$header.SizeMode = "StretchImage"
-if (Test-Path $headerPath) {
-  try {
-    $header.Image = [System.Drawing.Image]::FromFile($headerPath)
-  }
-  catch {
-    $header.BackColor = [System.Drawing.Color]::FromArgb(47, 99, 230)
-  }
-}
-else {
-  $header.BackColor = [System.Drawing.Color]::FromArgb(47, 99, 230)
-}
+$header.BackColor = [System.Drawing.Color]::FromArgb(28, 87, 199)
+$header.Add_Paint({
+  param($sender, $e)
+  $rect = $sender.ClientRectangle
+  $brush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
+    $rect,
+    [System.Drawing.Color]::FromArgb(26, 86, 214),
+    [System.Drawing.Color]::FromArgb(68, 139, 255),
+    [System.Drawing.Drawing2D.LinearGradientMode]::Horizontal
+  )
+  $e.Graphics.FillRectangle($brush, $rect)
+  $brush.Dispose()
+
+  $accentBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(34, 255, 255, 255))
+  $e.Graphics.FillEllipse($accentBrush, 560, -68, 220, 220)
+  $e.Graphics.FillEllipse($accentBrush, 612, 74, 88, 88)
+  $accentBrush.Dispose()
+})
 $form.Controls.Add($header)
 
 $logo = New-Object System.Windows.Forms.PictureBox
-$logo.Location = New-Object System.Drawing.Point(34, 30)
+$logo.Location = New-Object System.Drawing.Point(36, 34)
 $logo.Size = New-Object System.Drawing.Size(72, 72)
 $logo.SizeMode = "Zoom"
 $logo.BackColor = [System.Drawing.Color]::Transparent
@@ -125,7 +131,7 @@ if (Test-Path $logoPath) {
   catch {
   }
 }
-$form.Controls.Add($logo)
+$header.Controls.Add($logo)
 $logo.BringToFront()
 
 $title = New-Object System.Windows.Forms.Label
@@ -134,8 +140,8 @@ $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 20, [System.D
 $title.AutoSize = $true
 $title.ForeColor = [System.Drawing.Color]::White
 $title.BackColor = [System.Drawing.Color]::Transparent
-$title.Location = New-Object System.Drawing.Point(122, 34)
-$form.Controls.Add($title)
+$title.Location = New-Object System.Drawing.Point(126, 34)
+$header.Controls.Add($title)
 $title.BringToFront()
 
 $subtitle = New-Object System.Windows.Forms.Label
@@ -145,7 +151,7 @@ $subtitle.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
 $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(235, 242, 255)
 $subtitle.BackColor = [System.Drawing.Color]::Transparent
 $subtitle.Location = New-Object System.Drawing.Point(126, 78)
-$form.Controls.Add($subtitle)
+$header.Controls.Add($subtitle)
 $subtitle.BringToFront()
 
 $hint = New-Object System.Windows.Forms.Label
@@ -154,7 +160,7 @@ $hint.AutoSize = $true
 $hint.ForeColor = [System.Drawing.Color]::FromArgb(218, 230, 255)
 $hint.BackColor = [System.Drawing.Color]::Transparent
 $hint.Location = New-Object System.Drawing.Point(126, 106)
-$form.Controls.Add($hint)
+$header.Controls.Add($hint)
 $hint.BringToFront()
 
 $pathTitle = New-Object System.Windows.Forms.Label

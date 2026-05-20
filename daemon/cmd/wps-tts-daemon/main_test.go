@@ -23,6 +23,15 @@ func TestPreprocessFanchenTextAddsPauseOnlyForSemanticPunctuation(t *testing.T) 
 	}
 }
 
+func TestPreprocessFanchenTextSpeaksMathSymbols(t *testing.T) {
+	got := preprocessFanchenText("面积S=a*b+3/2，结果>=10%。", 1.2)
+	for _, want := range []string{"艾丝", "诶", "乘", "必", "加", "三", "除", "二", "大于等于", "一 零", "百分号"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("preprocessed text = %q, missing %q", got, want)
+		}
+	}
+}
+
 func TestSilencePCMUsesExpectedDuration(t *testing.T) {
 	wav := wavPCM{channels: 1, sampleRate: 16000, bitsPerSample: 16}
 	got := silencePCM(wav, sentenceEndPauseMs(1.2))

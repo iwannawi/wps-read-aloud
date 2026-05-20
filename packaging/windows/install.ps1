@@ -10,7 +10,7 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 Start-Transcript -Path $LogFile -Append | Out-Null
 $AddinInternalName = "wps-read-aloud"
 $AddinDisplayName = "文档朗读助手"
-$AddinDescription = "WPS文档朗读助手加载项申请访问本机语音合成服务"
+$AddinDescription = "文档朗读助手需要使用本机语音服务"
 
 function Write-InstallProgress {
   param(
@@ -58,6 +58,7 @@ function Set-WpsPluginEntry {
   Backup-ConfigFile -Path $Path
   if (Test-Path $Path) {
     $Content = Get-Content -Raw -Path $Path -Encoding UTF8
+    $Content = Remove-ProjectPluginEntries -Content $Content
     foreach ($Name in $Names) {
       $Escaped = [regex]::Escape($Name)
       $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
@@ -74,6 +75,14 @@ function Set-WpsPluginEntry {
     $Content = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<jsplugins>`r`n  $Entry`r`n</jsplugins>`r`n"
   }
   Set-Content -Path $Path -Value $Content -Encoding UTF8
+}
+
+function Remove-ProjectPluginEntries {
+  param([string]$Content)
+  $Pattern = 'wps-read-aloud|WPS Read Aloud|WPS 文档朗读助手|文档朗读助手|127\.0\.0\.1:19860'
+  $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b(?=[^>]*($Pattern))[^>]*/>", "")
+  $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b(?=[^>]*($Pattern))[\s\S]*?</jsplugin>", "")
+  return $Content
 }
 
 function Remove-WpsPluginEntry {
@@ -539,9 +548,9 @@ try {
   $LocalUrl = "http://127.0.0.1:19860/addin/"
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
-  $KnownNames = @($AddinInternalName, $AddinDisplayName)
+  $KnownNames = @($AddinInternalName, $AddinDisplayName, "WPS 文档朗读助手", "wps-read-aloud-comate", "wps-read-aloud-xc", "wps-read-aloud-zhangjingyao")
   $OnlineEntry = @"
-<jspluginonline name="$AddinDisplayName" type="wps" enable="enable" install="$LocalUrl" url="$LocalUrl" debug="" desc="$AddinDescription"/>
+<jspluginonline name="$AddinDisplayName" type="wps" enable="enable" install="$LocalUrl" url="$LocalUrl" desc="$AddinDescription"/>
 "@
   $LocalEntry = @"
 <jsplugin name="$AddinDisplayName" type="wps" url="$FileUrl" version="$AddinVersion" desc="$AddinDescription">
