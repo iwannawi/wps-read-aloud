@@ -202,6 +202,14 @@ body.compact {
   justify-content: center;
 }
 
+html.compact {
+  min-width: 0;
+  min-height: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
 body.compact .dialog {
   width: 100vw;
   height: 100vh;

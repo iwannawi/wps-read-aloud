@@ -536,7 +536,7 @@ try {
   $Index = (Join-Path $Target "index.html").Replace("\", "/")
   $Ribbon = (Join-Path $Target "ribbon.xml").Replace("\", "/")
   $FileUrl = "file:///$Index"
-  $LocalUrl = "http://127.0.0.1:19860/addin/index.html"
+  $LocalUrl = "http://127.0.0.1:19860/addin/"
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
   $KnownNames = @($AddinInternalName, $AddinDisplayName)
@@ -551,6 +551,7 @@ try {
   Set-WpsPluginEntry -Path $PublishXml -Entry $OnlineEntry -Names $KnownNames
   Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry -Names $KnownNames
   Remove-WpsAuthAddinEntry -Path (Join-Path $JsDir "authaddin.json") -Name $AddinInternalName
+  Remove-WpsAuthAddinEntry -Path (Join-Path $JsDir "authaddin.json") -Name $AddinDisplayName
   Clear-WpsJsAddinBlockHost -JsDir $JsDir
 
   Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请彻底退出并重新打开 WPS"

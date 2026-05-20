@@ -33,6 +33,10 @@
 - 2026-05-19 复盘：WPS 授权弹窗会优先呈现加载项注册名称。注册名称应使用中文“文档朗读助手”，描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”；内部目录和包名可以继续使用英文标识，但不要作为用户授权提示的显示名称。
 - 2026-05-19 复盘：Windows PowerShell 5 解析包含中文的脚本时，必须确保脚本保存为 UTF-8 BOM；否则会按系统 ANSI 误读，造成乱码和字符串语法错误。图形安装器中的自定义函数作为表达式传参时，应写成 “(Read-LogTail)” 形式，不要写成 “Read-LogTail()”。
 - 2026-05-20 复盘：Go 安装器启动 PowerShell WinForms 安装界面时，不要使用 “HideWindow: true”，否则可能把 WinForms 主窗体也隐藏掉，用户看到的就是点击 exe 后完全没有反应。图形 UI 路径应使用 STA 模式，并使用 “CREATE_NO_WINDOW” 隐藏控制台但保留窗体；UI 启动失败时外层 exe 必须弹出错误提示。
+- 2026-05-20 复盘：Windows WPS 的 “jspluginonline” 入口不要把 “url” 写到具体 “index.html”。Windows WPS 会把该地址作为加载项目录根来定位 “ribbon.xml”等资源；应使用 “http://127.0.0.1:19860/addin/”。如果旧授权缓存里记录了 “/addin/index.html”，Windows 升级安装时必须清理当前中文名称和旧内部名称的授权缓存，让 WPS 重新加载新入口。该问题目前只在 Windows 客户端确认，不要同步改动麒麟/UOS 已验证正常的注册入口。
+- 2026-05-20 复盘：Linux 首次点击朗读时出现“允许访问 127.0.0.1:19860”弹窗，根因可能是 WPS 从本地 file 加载项页面跨源访问本地服务。WPS 内置安全弹窗文案很可能由访问目标自动生成，不能完全靠 “desc” 改写。可通过让 Linux 的 “jsplugins.xml” 入口也指向 “http://127.0.0.1:19860/addin/index.html”，并让前端在 http 环境下使用相对路径，减少跨源授权提示。
+- 2026-05-20 复盘：启动朗读小窗如果仍出现滚动条，除了给 “body.compact” 清最小尺寸，也要给 “html.compact” 清 “min-width/min-height”。否则 “html, body” 的全局最小尺寸会继续撑出滚动条。
+- 2026-05-20 复盘：Linux 同版本重装时，如果端口已由本项目自己的旧服务占用，preinst 不应直接阻断。应同时检查 marker、service 文件路径和 “/health” 响应，确认是本项目服务后允许 dpkg 继续覆盖安装。
 - Windows 覆盖安装前必须先停止当前安装目录下正在运行的旧版 “wps-tts-daemon.exe”。否则 “Copy-Item” 会因为 exe 被占用报 “being used by another process”，导致升级安装失败。
 - Windows 安装期健康检查不要只等 10 到 15 秒。受杀毒扫描、低性能机器或首次启动影响，daemon 可能在安装器判失败后才完成启动。当前使用 60 秒等待窗口。
 - Windows 安装前必须探测 WPS 客户端：至少检查 “wps.exe” 路径、产品版本和 PE 位数。本项目不是进程内 DLL 插件，WPS JS 加载项通过 127.0.0.1 调用独立本地朗读服务，因此本地服务位数不需要和 WPS 位数一致；位数检测用于日志和故障定位，不应阻止 64 位 WPS 安装。

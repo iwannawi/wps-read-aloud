@@ -1,7 +1,9 @@
 (function () {
   "use strict";
 
-  var SERVICE_BASE = "http://127.0.0.1:19860";
+  var SERVICE_BASE = (window.location && window.location.protocol.indexOf("http") === 0)
+    ? ""
+    : "http://127.0.0.1:19860";
   var MAX_TEXT_LENGTH = 200000;
   var MAX_SENTENCES = 1000;
   var MAX_SENTENCE_LENGTH = 1000;
@@ -708,7 +710,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.0.35" },
+        { label: "版本", value: "1.0.36" },
         { label: "发布日期", value: "20260520" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },

@@ -22,11 +22,28 @@ owned_app_dir() {
   [[ -f "${MARKER}" || -f "${LEGACY_MARKER}" ]]
 }
 
+service_file_owned() {
+  [[ -f "${SERVICE_FILE}" ]] && {
+    grep -q "${APP_DIR}/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null ||
+    grep -q "/opt/wps-read-aloud/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null
+  }
+}
+
+port_looks_like_ours() {
+  local response
+  response="$(
+    exec 3<>/dev/tcp/127.0.0.1/${PORT}
+    printf 'GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n' >&3
+    cat <&3
+  )" 2>/dev/null || response=""
+  echo "${response}" | grep -q '"engine":"sherpa-onnx"' && echo "${response}" | grep -q '"version":"'
+}
+
 if is_upgrade_or_reinstall "${1:-}"; then
   if (
     exec 3<>/dev/tcp/127.0.0.1/${PORT}
   ) 2>/dev/null; then
-    if ! systemctl is-active --quiet wps-tts.service 2>/dev/null; then
+    if ! systemctl is-active --quiet wps-tts.service 2>/dev/null && ! { owned_app_dir && service_file_owned && port_looks_like_ours; }; then
       echo "安装已停止：127.0.0.1:${PORT} 已被其他程序占用。"
       echo "为避免影响其他软件，请释放该端口后再安装。"
       exit 1
@@ -39,7 +56,7 @@ if is_upgrade_or_reinstall "${1:-}"; then
     exit 1
   fi
 
-  if [[ -e "${SERVICE_FILE}" ]] && ! grep -q "${APP_DIR}/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null && ! grep -q "/opt/wps-read-aloud/daemon/wps-tts-daemon" "${SERVICE_FILE}" 2>/dev/null; then
+  if [[ -e "${SERVICE_FILE}" ]] && ! service_file_owned; then
     echo "安装已停止：${SERVICE_FILE} 已存在，且不是本项目的服务文件。"
     echo "请先确认该服务来源，避免覆盖其他软件。"
     exit 1
