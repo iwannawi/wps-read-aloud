@@ -37,6 +37,7 @@
 - 2026-05-20 复盘：Linux 首次点击朗读时出现“允许访问 127.0.0.1:19860”弹窗，根因可能是 WPS 从本地 file 加载项页面跨源访问本地服务。WPS 内置安全弹窗文案很可能由访问目标自动生成，不能完全靠 “desc” 改写。可通过让 Linux 的 “jsplugins.xml” 入口也指向 “http://127.0.0.1:19860/addin/index.html”，并让前端在 http 环境下使用相对路径，减少跨源授权提示。
 - 2026-05-20 复盘：启动朗读小窗如果仍出现滚动条，除了给 “body.compact” 清最小尺寸，也要给 “html.compact” 清 “min-width/min-height”。否则 “html, body” 的全局最小尺寸会继续撑出滚动条。
 - 2026-05-20 复盘：Linux 同版本重装时，如果端口已由本项目自己的旧服务占用，preinst 不应直接阻断。应同时检查 marker、service 文件路径和 “/health” 响应，确认是本项目服务后允许 dpkg 继续覆盖安装。
+- 2026-05-20 复盘：前端把 API 基址切成同源相对路径时，不能连弹窗地址一起改成 “/dialog.html”。Windows WPS 的 ShowDialog 对相对地址兼容性差，容易出现空白窗体；ShowDialog 应使用 “http://127.0.0.1:19860/dialog.html?...” 绝对地址。WPS 环境下 ShowDialog 失败后也不要回退到 “window.open”，否则会额外调起外部浏览器。
 - Windows 覆盖安装前必须先停止当前安装目录下正在运行的旧版 “wps-tts-daemon.exe”。否则 “Copy-Item” 会因为 exe 被占用报 “being used by another process”，导致升级安装失败。
 - Windows 安装期健康检查不要只等 10 到 15 秒。受杀毒扫描、低性能机器或首次启动影响，daemon 可能在安装器判失败后才完成启动。当前使用 60 秒等待窗口。
 - Windows 安装前必须探测 WPS 客户端：至少检查 “wps.exe” 路径、产品版本和 PE 位数。本项目不是进程内 DLL 插件，WPS JS 加载项通过 127.0.0.1 调用独立本地朗读服务，因此本地服务位数不需要和 WPS 位数一致；位数检测用于日志和故障定位，不应阻止 64 位 WPS 安装。

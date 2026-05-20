@@ -1,9 +1,10 @@
 (function () {
   "use strict";
 
+  var SERVICE_ORIGIN = "http://127.0.0.1:19860";
   var SERVICE_BASE = (window.location && window.location.protocol.indexOf("http") === 0)
     ? ""
-    : "http://127.0.0.1:19860";
+    : SERVICE_ORIGIN;
   var MAX_TEXT_LENGTH = 200000;
   var MAX_SENTENCES = 1000;
   var MAX_SENTENCE_LENGTH = 1000;
@@ -38,10 +39,12 @@
 
   function showDialog(options) {
     var payload = encodeURIComponent(toBase64(JSON.stringify(options || {})));
-    var url = SERVICE_BASE + "/dialog.html?payload=" + payload;
+    var url = SERVICE_ORIGIN + "/dialog.html?payload=" + payload;
     var title = options && options.title ? options.title : "文档朗读";
     var width = options && options.width ? Number(options.width) : 880;
     var height = options && options.height ? Number(options.height) : 680;
+    var inWps = !!((window.wps && typeof window.wps.ShowDialog === "function") ||
+      (window.Application && typeof window.Application.ShowDialog === "function"));
 
     try {
       if (window.wps && typeof window.wps.ShowDialog === "function") {
@@ -54,6 +57,11 @@
       }
     } catch (_) {
       // Continue to window.open below.
+    }
+
+    if (inWps) {
+      dialogFallback(options);
+      return null;
     }
 
     try {
@@ -710,7 +718,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.0.36" },
+        { label: "版本", value: "1.0.37" },
         { label: "发布日期", value: "20260520" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
@@ -722,8 +730,8 @@
         { label: "开源组件", value: "本软件包含第三方开源组件，相关版权和许可见第三方声明。" }
       ],
       links: [
-        { label: "发布说明", url: SERVICE_BASE + "/docs/RELEASE_NOTES.md" },
-        { label: "第三方声明", url: SERVICE_BASE + "/docs/THIRD_PARTY_NOTICES.md" }
+        { label: "发布说明", url: SERVICE_ORIGIN + "/docs/RELEASE_NOTES.md" },
+        { label: "第三方声明", url: SERVICE_ORIGIN + "/docs/THIRD_PARTY_NOTICES.md" }
       ]
     });
   }

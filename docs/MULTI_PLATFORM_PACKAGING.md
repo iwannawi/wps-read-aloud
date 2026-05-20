@@ -6,11 +6,11 @@
 
 | 分类 | 目标系统 | CPU 架构 | 安装包格式 | 文件名示例 |
 | --- | --- | --- | --- | --- |
-| Windows | Windows | x86/x64 | exe 安装程序 | wps-read-aloud-comate_1.0.36_windows.exe |
-| 银河麒麟 x64 | 银河麒麟 | amd64 | deb | wps-read-aloud-comate_1.0.36_amd64.deb |
-| 银河麒麟 arm64 | 银河麒麟 | arm64 | deb | wps-read-aloud-comate_1.0.36_arm64.deb |
-| UOS x64 | UOS | amd64 | deb | cn.wps-read-aloud-comate_1.0.36_amd64.deb |
-| UOS arm64 | UOS | arm64 | deb | cn.wps-read-aloud-comate_1.0.36_arm64.deb |
+| Windows | Windows | x86/x64 | exe 安装程序 | wps-read-aloud-comate_1.0.37_windows.exe |
+| 银河麒麟 x64 | 银河麒麟 | amd64 | deb | wps-read-aloud-comate_1.0.37_amd64.deb |
+| 银河麒麟 arm64 | 银河麒麟 | arm64 | deb | wps-read-aloud-comate_1.0.37_arm64.deb |
+| UOS x64 | UOS | amd64 | deb | cn.wps-read-aloud-comate_1.0.37_amd64.deb |
+| UOS arm64 | UOS | arm64 | deb | cn.wps-read-aloud-comate_1.0.37_arm64.deb |
 
 ## 共用部分
 
