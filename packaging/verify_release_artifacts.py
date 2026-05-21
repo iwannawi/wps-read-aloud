@@ -183,8 +183,11 @@ def find_embedded_zip(data: bytes, artifact: Path) -> bytes:
 def main() -> None:
     targets = load_targets()
     checksum_lines = []
+    expected_dist_files = set()
     for target in targets:
         artifact = DIST / target["artifact"]
+        expected_dist_files.add(target["artifact"])
+        expected_dist_files.add(target["artifact"] + ".sha256")
         if not artifact.is_file():
             fail(f"missing release artifact: {artifact.relative_to(ROOT)}")
         checksum_lines.append(check_sha(artifact))
@@ -199,6 +202,9 @@ def main() -> None:
     actual = CHECKSUMS.read_text(encoding="ascii").strip().splitlines()
     if actual != checksum_lines:
         fail("CHECKSUMS.txt does not match the five release artifacts")
+    extra = sorted(path.name for path in DIST.iterdir() if path.is_file() and path.name not in expected_dist_files)
+    if extra:
+        fail("unexpected release file in dist: " + extra[0])
     print("release_artifacts_ok")
 
 

@@ -13,6 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "packaging" / "platforms.json"
 PYTHON = sys.executable
 DIST = ROOT / "dist"
+INTERMEDIATE_PREFIXES = (
+    "wps-tts-daemon-linux-",
+    "wps-tts-daemon-windows-",
+)
 
 
 def load_targets():
@@ -117,6 +121,14 @@ def validate_artifacts(targets):
         raise SystemExit("release artifacts are incomplete:\n" + "\n".join("  " + item for item in missing))
 
 
+def cleanup_intermediate_binaries():
+    if not DIST.is_dir():
+        return
+    for path in DIST.iterdir():
+        if path.is_file() and any(path.name.startswith(prefix) for prefix in INTERMEDIATE_PREFIXES):
+            path.unlink()
+
+
 def check_platform_inputs_if_all_targets(targets, selected_targets):
     if {target["id"] for target in targets} == {target["id"] for target in selected_targets}:
         run([PYTHON, "packaging/check_platform_inputs.py"])
@@ -170,6 +182,7 @@ def main():
     validate_artifacts(selected_targets)
     if not args.no_checksums:
         write_checksums(selected_targets)
+    cleanup_intermediate_binaries()
     verify_release_artifacts_if_all_targets(targets, selected_targets)
 
 

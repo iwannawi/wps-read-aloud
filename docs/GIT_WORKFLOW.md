@@ -41,11 +41,11 @@ Git 保存源码、脚本、配置、文档和许可证。
 
 本项目从 1.1.2 开始按此规则发布。标签格式为：
 
-    v1.1.2-20260520
+    v1.1.2-20260521
 
 Release 名称格式为：
 
-    wps-read-aloud-comate 1.1.2 20260520
+    wps-read-aloud-comate 1.1.2 20260521
 
 ## 自动发布流程
 
@@ -66,11 +66,11 @@ Release 名称格式为：
 
 推送：
 
-    .\scripts\push_github.ps1 -Tag v1.1.2-20260520
+    .\scripts\push_github.ps1 -Tag v1.1.2-20260521
 
 发布 Release：
 
-    .\scripts\publish_github_release.ps1 -Version 1.1.2 -ReleaseDate 20260520
+    .\scripts\publish_github_release.ps1 -Version 1.1.2 -ReleaseDate 20260521
 
 脚本使用 HTTPS，不使用 SSH。认证优先读取 GitHub CLI，其次读取 Git Credential Manager。脚本不得把 token 写入源码、日志或 Git remote。
 

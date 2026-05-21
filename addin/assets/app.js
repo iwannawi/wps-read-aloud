@@ -94,7 +94,7 @@
     }, 100);
   }
 
-  function showStartupDialog() {
+  function showStartupDialog(message) {
     startupDialogId = "startup-" + Date.now() + "-" + Math.floor(Math.random() * 1000000);
     var options = {
       title: "朗读正在启动",
@@ -103,8 +103,8 @@
       startup: true,
       startupId: startupDialogId,
       width: 500,
-      height: 150,
-      message: "朗读服务正在启动，请耐心等待..."
+      height: 170,
+      message: message || "朗读服务正在启动，请耐心等待..."
     };
     return showDialog(options);
   }
@@ -456,16 +456,17 @@
       notify("没有可朗读的完整语句。");
       return;
     }
+    var startupMessage = "朗读服务正在启动，请耐心等待...";
     if (segments.length >= MAX_SENTENCES) {
-      status("文档内容较长，本次将朗读前 " + MAX_SENTENCES + " 句。");
+      startupMessage += "\n文档内容较长，本次将朗读前 " + MAX_SENTENCES + " 句。";
     }
 
     playbackToken += 1;
     var token = playbackToken;
     setReadingState(true);
     lastSelectedIndex = -1;
-    status("朗读服务正在启动，请耐心等待...");
-    startupPopup = showStartupDialog();
+    status("朗读服务正在启动。");
+    startupPopup = showStartupDialog(startupMessage);
 
     try {
       await request("/read/start", {
@@ -763,7 +764,7 @@
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
         { label: "版本", value: "1.1.2" },
-        { label: "发布日期", value: "20260520" },
+        { label: "发布日期", value: "20260521" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
         { label: "支持系统", value: "x86/x64 Windows 10/11；x64 银河麒麟 V10+；ARM64 银河麒麟 V10+；x64 UOS V20；ARM64 UOS V20" },

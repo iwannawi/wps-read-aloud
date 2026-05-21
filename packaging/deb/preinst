@@ -14,6 +14,48 @@ MARKER="${APP_DIR}/.wps-read-aloud-comate"
 LEGACY_MARKER="${APP_DIR}/.wps-read-aloud-zhangjingyao"
 PORT="19860"
 
+neutralize_legacy_maintainer_scripts() {
+  local pkg script path backup
+  local packages=(
+    "wps-read-aloud-zhangjingyao"
+    "wps-read-aloud-xc"
+    "cn.wps-read-aloud-xc"
+    "wps-read-aloud-comate"
+    "cn.wps-read-aloud-comate"
+  )
+  local scripts=("prerm" "postrm")
+
+  for pkg in "${packages[@]}"; do
+    for script in "${scripts[@]}"; do
+      path="/var/lib/dpkg/info/${pkg}.${script}"
+      [[ -f "${path}" ]] || continue
+      if ! grep -Eq 'wps-read-aloud|wps-tts\.service|/opt/wps-read-aloud' "${path}" 2>/dev/null; then
+        continue
+      fi
+      backup="${path}.wps-read-aloud-comate.bak"
+      if [[ ! -f "${backup}" ]]; then
+        cp -a "${path}" "${backup}" 2>/dev/null || true
+      fi
+      cat > "${path}" <<'EOF'
+#!/usr/bin/env bash
+set +e
+LOG_FILE="/var/log/wps-read-aloud-install.log"
+mkdir -p /var/log 2>/dev/null
+{
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] legacy maintainer script compatibility wrapper $*"
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now wps-tts.service >/dev/null 2>&1 || true
+    systemctl daemon-reload >/dev/null 2>&1 || true
+  fi
+} >> "${LOG_FILE}" 2>&1
+exit 0
+EOF
+      chmod 0755 "${path}" 2>/dev/null || true
+      echo "已为旧版安装包 ${pkg}.${script} 启用兼容卸载兜底。"
+    done
+  done
+}
+
 is_upgrade_or_reinstall() {
   [[ "${1:-}" = "upgrade" || "${1:-}" = "install" ]]
 }
@@ -40,6 +82,8 @@ port_looks_like_ours() {
 }
 
 if is_upgrade_or_reinstall "${1:-}"; then
+  neutralize_legacy_maintainer_scripts
+
   if (
     exec 3<>/dev/tcp/127.0.0.1/${PORT}
   ) 2>/dev/null; then
