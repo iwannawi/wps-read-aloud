@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.1
+版本：1.1.2
 发布时间：20260520
 开发者：Zhang Jingyao
 
@@ -24,6 +24,8 @@
 ## 变更
 
 - Windows 安装界面改为绘制式头部区域，使用透明背景 logo，避免白底遮挡和文字不可见。
+- Windows 安装器 logo 和任务栏图标改用用户确认的正式图标。
+- README 顶部增加正式宣传图，GitHub 仓库首页展示更直观。
 - 首次授权提示文案改短，降低用户理解成本。
 - 超长文档超过 1000 句时不再额外弹窗，只在 WPS 状态栏提示本次朗读范围。
 - GitHub Release 发布流程改为使用 UTF-8 安全方式生成说明文件，避免中文乱码。
@@ -39,11 +41,11 @@
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.1_windows.exe |
-| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.1_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.1_arm64.deb |
-| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.1_amd64.deb |
-| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.1_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.2_windows.exe |
+| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.2_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.2_arm64.deb |
+| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.2_amd64.deb |
+| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.2_arm64.deb |
 
 ## 已知限制
 
