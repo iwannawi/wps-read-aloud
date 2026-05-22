@@ -40,9 +40,18 @@ func TestWindowsTtsTextCandidatesAddContextForShortCJK(t *testing.T) {
 	}
 }
 
+func TestWindowsCleanTextSkipsEmptyTableCellMarkers(t *testing.T) {
+	if got := cleanText("\r\a"); got != "" {
+		t.Fatalf("cleanText for empty table cell = %q, want empty", got)
+	}
+	if got := ttsTextCandidates(cleanText("\r\a")); len(got) != 0 {
+		t.Fatalf("ttsTextCandidates for empty table cell = %#v, want no candidates", got)
+	}
+}
+
 func TestWindowsPrefetchCountUsesDynamicTextWindow(t *testing.T) {
 	ss := &Session{sentences: []ReadSentence{
-		{Text: strings.Repeat("一", 101)},
+		{Text: strings.Repeat("一", 241)},
 		{Text: "第二句"},
 		{Text: "第三句"},
 	}}
@@ -55,9 +64,14 @@ func TestWindowsPrefetchCountUsesDynamicTextWindow(t *testing.T) {
 		{Text: strings.Repeat("二", 30)},
 		{Text: strings.Repeat("三", 30)},
 		{Text: strings.Repeat("四", 30)},
+		{Text: strings.Repeat("五", 30)},
+		{Text: strings.Repeat("六", 30)},
+		{Text: strings.Repeat("七", 30)},
+		{Text: strings.Repeat("八", 30)},
+		{Text: strings.Repeat("九", 30)},
 	}
-	if got := ss.prefetchCount(0); got != 4 {
-		t.Fatalf("prefetchCount for short sentences = %d, want 4", got)
+	if got := ss.prefetchCount(0); got != 8 {
+		t.Fatalf("prefetchCount for short sentences = %d, want 8", got)
 	}
 }
 

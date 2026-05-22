@@ -5,8 +5,10 @@
 ## 工具链
 
 - 不使用 Windows Store 的 python 别名。运行项目脚本时使用 Codex 工作区内置 Python。
+- 不使用裸 python 执行同步、构建、版本替换等项目脚本。Windows Store 别名会失败，应直接调用 Codex 工作区内置 Python。
 - 执行 JavaScript 语法检查时使用 Codex 工作区内置 Node。
 - Windows PowerShell 5 会按本地编码误读无 BOM 的 UTF-8 脚本。Windows 安装、卸载脚本应保存为 UTF-8 BOM，并用 Windows PowerShell 5 做语法检查。
+- 不用 Windows PowerShell 5 的 Get-Content/Set-Content 批量改写中文 Markdown、XML、JS 文件；它会把 UTF-8 中文误读成乱码。批量文本替换必须使用显式 UTF-8 读写。
 - 在 PowerShell 外层命令中包含 $null、$files、$f、$s 等变量时，避免外层提前展开。
 - Go 服务必须在 daemon 目录内构建。Windows 安装器必须在 packaging/windows/installer 目录内测试。
 

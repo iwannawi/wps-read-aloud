@@ -1,8 +1,8 @@
 param(
   [string]$Owner = "iwannawi",
   [string]$Repo = "wps-read-aloud-comate",
-  [string]$Version = "1.1.7",
-  [string]$ReleaseDate = "20260522",
+  [string]$Version = "1.1.8",
+  [string]$ReleaseDate = "20260523",
   [string]$Tag = "",
   [switch]$PromptToken
 )

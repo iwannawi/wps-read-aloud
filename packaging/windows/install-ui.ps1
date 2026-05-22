@@ -108,14 +108,41 @@ function Update-ProgressFromFile {
   }
 }
 
+$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$formWidth = [Math]::Min(1180, [Math]::Max(980, $workingArea.Width - 60))
+$formHeight = [Math]::Min(860, [Math]::Max(740, $workingArea.Height - 60))
+$margin = 48
+$layoutWidth = [Math]::Max(1040, $formWidth - 18)
+$contentWidth = $layoutWidth - ($margin * 2)
+
+if ($script:headerImage) {
+  $imageRatio = $script:headerImage.Width / [double]$script:headerImage.Height
+  $headerHeight = [int][Math]::Round($layoutWidth / $imageRatio)
+  $headerHeight = [Math]::Min(410, [Math]::Max(300, $headerHeight))
+}
+else {
+  $headerHeight = 320
+}
+
+$pathY = $headerHeight + 34
+$progressY = $pathY + 82
+$actionY = $progressY + 58
+$detailY = $actionY + 42
+$detailBoxY = $detailY + 58
+$detailBoxHeight = 220
+$buttonY = $detailBoxY + $detailBoxHeight + 34
+$layoutHeight = $buttonY + 82
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "WPS 文档朗读助手 安装程序"
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
-$form.ClientSize = New-Object System.Drawing.Size(900, 660)
-$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$form.ClientSize = New-Object System.Drawing.Size($formWidth, $formHeight)
+$form.MinimumSize = New-Object System.Drawing.Size(940, 700)
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+$form.AutoScroll = $true
 $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Point)
 $form.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 253)
 if (Test-Path $iconPath) {
@@ -126,9 +153,15 @@ if (Test-Path $iconPath) {
   }
 }
 
+$main = New-Object System.Windows.Forms.Panel
+$main.Location = New-Object System.Drawing.Point(0, 0)
+$main.Size = New-Object System.Drawing.Size($layoutWidth, $layoutHeight)
+$main.BackColor = $form.BackColor
+$form.Controls.Add($main)
+
 $header = New-Object System.Windows.Forms.Panel
 $header.Location = New-Object System.Drawing.Point(0, 0)
-$header.Size = New-Object System.Drawing.Size(900, 360)
+$header.Size = New-Object System.Drawing.Size($layoutWidth, $headerHeight)
 $header.BackColor = [System.Drawing.Color]::White
 $header.Add_Paint({
   param($sender, $e)
@@ -139,19 +172,14 @@ $header.Add_Paint({
   $rect = $sender.ClientRectangle
   if ($script:headerImage) {
     $imageRatio = $script:headerImage.Width / [double]$script:headerImage.Height
-    $boxRatio = $rect.Width / [double]$rect.Height
-    if ($imageRatio -gt $boxRatio) {
-      $drawWidth = $rect.Width
-      $drawHeight = [int][Math]::Round($drawWidth / $imageRatio)
-      $drawX = 0
-      $drawY = [int][Math]::Round(($rect.Height - $drawHeight) / 2)
-    }
-    else {
+    $drawWidth = $rect.Width
+    $drawHeight = [int][Math]::Round($drawWidth / $imageRatio)
+    if ($drawHeight -gt $rect.Height) {
       $drawHeight = $rect.Height
       $drawWidth = [int][Math]::Round($drawHeight * $imageRatio)
-      $drawX = [int][Math]::Round(($rect.Width - $drawWidth) / 2)
-      $drawY = 0
     }
+    $drawX = [int][Math]::Round(($rect.Width - $drawWidth) / 2)
+    $drawY = [int][Math]::Round(($rect.Height - $drawHeight) / 2)
     $dest = New-Object System.Drawing.Rectangle($drawX, $drawY, $drawWidth, $drawHeight)
     $e.Graphics.DrawImage($script:headerImage, $dest)
   }
@@ -166,48 +194,54 @@ $header.Add_Paint({
     $brush.Dispose()
   }
 })
-$form.Controls.Add($header)
+$main.Controls.Add($header)
 
 $pathTitle = New-Object System.Windows.Forms.Label
 $pathTitle.Text = "安装路径"
-$pathTitle.AutoSize = $true
+$pathTitle.AutoSize = $false
+$pathTitle.Size = New-Object System.Drawing.Size(112, 40)
 $pathTitle.ForeColor = [System.Drawing.Color]::FromArgb(36, 48, 64)
-$pathTitle.Location = New-Object System.Drawing.Point(46, 386)
+$pathTitle.Location = New-Object System.Drawing.Point($margin, ($pathY + 6))
+$pathTitle.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 $pathTitle.UseCompatibleTextRendering = $false
-$form.Controls.Add($pathTitle)
+$main.Controls.Add($pathTitle)
 
 $pathBox = New-Object System.Windows.Forms.TextBox
 $pathBox.Text = $InstallDir
 $pathBox.ReadOnly = $true
 $pathBox.BorderStyle = "FixedSingle"
-$pathBox.Location = New-Object System.Drawing.Point(150, 381)
-$pathBox.Size = New-Object System.Drawing.Size(704, 32)
+$pathBox.Location = New-Object System.Drawing.Point(($margin + 132), $pathY)
+$pathBox.Size = New-Object System.Drawing.Size(($contentWidth - 132), 42)
 $pathBox.ForeColor = [System.Drawing.Color]::FromArgb(20, 28, 42)
-$form.Controls.Add($pathBox)
+$main.Controls.Add($pathBox)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(46, 440)
-$progressBar.Size = New-Object System.Drawing.Size(808, 26)
+$progressBar.Location = New-Object System.Drawing.Point($margin, $progressY)
+$progressBar.Size = New-Object System.Drawing.Size($contentWidth, 34)
 $progressBar.Minimum = 0
 $progressBar.Maximum = 100
-$form.Controls.Add($progressBar)
+$main.Controls.Add($progressBar)
 
 $actionLabel = New-Object System.Windows.Forms.Label
 $actionLabel.Text = "准备开始安装"
-$actionLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Bold)
-$actionLabel.AutoSize = $true
+$actionLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10.5, [System.Drawing.FontStyle]::Bold)
+$actionLabel.AutoSize = $false
+$actionLabel.Size = New-Object System.Drawing.Size($contentWidth, 36)
 $actionLabel.ForeColor = [System.Drawing.Color]::FromArgb(31, 41, 55)
-$actionLabel.Location = New-Object System.Drawing.Point(46, 490)
+$actionLabel.Location = New-Object System.Drawing.Point($margin, $actionY)
+$actionLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 $actionLabel.UseCompatibleTextRendering = $false
-$form.Controls.Add($actionLabel)
+$main.Controls.Add($actionLabel)
 
 $detailLabel = New-Object System.Windows.Forms.Label
 $detailLabel.Text = "请稍候。"
-$detailLabel.AutoSize = $true
+$detailLabel.AutoSize = $false
+$detailLabel.Size = New-Object System.Drawing.Size($contentWidth, 48)
 $detailLabel.ForeColor = [System.Drawing.Color]::FromArgb(52, 64, 84)
-$detailLabel.Location = New-Object System.Drawing.Point(46, 520)
+$detailLabel.Location = New-Object System.Drawing.Point($margin, $detailY)
+$detailLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 $detailLabel.UseCompatibleTextRendering = $false
-$form.Controls.Add($detailLabel)
+$main.Controls.Add($detailLabel)
 
 $detailBox = New-Object System.Windows.Forms.TextBox
 $detailBox.Multiline = $true
@@ -217,18 +251,18 @@ $detailBox.BorderStyle = "FixedSingle"
 $detailBox.BackColor = [System.Drawing.Color]::White
 $detailBox.ForeColor = [System.Drawing.Color]::FromArgb(20, 28, 42)
 $detailBox.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9.5)
-$detailBox.Location = New-Object System.Drawing.Point(46, 548)
-$detailBox.Size = New-Object System.Drawing.Size(808, 58)
-$form.Controls.Add($detailBox)
+$detailBox.Location = New-Object System.Drawing.Point($margin, $detailBoxY)
+$detailBox.Size = New-Object System.Drawing.Size($contentWidth, $detailBoxHeight)
+$main.Controls.Add($detailBox)
 
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Text = "安装中"
 $closeButton.Enabled = $false
-$closeButton.Location = New-Object System.Drawing.Point(390, 616)
-$closeButton.Size = New-Object System.Drawing.Size(120, 38)
+$closeButton.Location = New-Object System.Drawing.Point([int](($layoutWidth - 140) / 2), $buttonY)
+$closeButton.Size = New-Object System.Drawing.Size(140, 44)
 $closeButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
 $closeButton.Add_Click({ $form.Close() })
-$form.Controls.Add($closeButton)
+$main.Controls.Add($closeButton)
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 400

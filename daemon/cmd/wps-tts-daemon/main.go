@@ -32,8 +32,8 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const prefetchTextTarget = 100
-const prefetchSentenceLimit = 6
+const prefetchTextTarget = 240
+const prefetchSentenceLimit = 8
 const pauseBaseRate = 1.2
 const standardPauseMsAtBaseRate = 400
 const sentenceEndPauseMsAtBaseRate = 600
@@ -1324,7 +1324,7 @@ func pageRangeText(text string) string {
 func ttsTextCandidates(text string) []string {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return []string{"空白内容"}
+		return nil
 	}
 	candidates := []string{text}
 	if shortCJKText(text) {
@@ -1969,6 +1969,15 @@ func fileExists(path string) bool {
 func cleanText(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
+	text = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if r < 32 || r == '\ufeff' || r == '\ufffc' || r == '\ufffd' {
+			return -1
+		}
+		return r
+	}, text)
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		lines[i] = strings.TrimSpace(line)

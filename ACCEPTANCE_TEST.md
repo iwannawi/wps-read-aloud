@@ -2,27 +2,27 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.7
+版本：1.1.8
 
 ## 环境矩阵
 
 | CPU 架构 + 操作系统 | WPS 要求 | 安装包 |
 | --- | --- | --- |
-| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.7_windows.exe |
-| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.7_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.7_arm64.deb |
-| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.7_amd64.deb |
-| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.7_arm64.deb |
+| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.8_windows.exe |
+| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.8_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.8_arm64.deb |
+| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.8_amd64.deb |
+| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.8_arm64.deb |
 
 ## 安装验收
 
 | CPU 架构 + 操作系统 | 操作 |
 | --- | --- |
-| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.7_windows.exe |
-| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.7_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.7_arm64.deb |
-| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.7_amd64.deb |
-| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.7_arm64.deb |
+| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.8_windows.exe |
+| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.8_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.8_arm64.deb |
+| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.8_amd64.deb |
+| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.8_arm64.deb |
 
 预期结果：
 
@@ -46,21 +46,48 @@
 7. “朗读语速”包含 0.75x、1x、1.2x、1.5x，默认 1.2x。
 8. 任何按钮不应弹出“未知按钮”。
 
-## 朗读验收
+## 完整朗读验收
+
+- 每次版本测试固定使用 D:\Dev Projects\维护手册.docx 做功能测试文档。该文档仅用于本地测试，不进入安装包和源码仓库。
+- 每次版本测试必须覆盖完整文档，不能只抽测前 5 页，也不能只检查语音合成是否成功。
+- 测试必须覆盖连页朗读、当页朗读、从文档开头朗读、从其他页当前光标处朗读、目录页朗读、正文页朗读和跨页长句朗读。
+- 自动化检查命令：
+
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\test_wps_selection_consistency.ps1 -DocumentPath "D:\Dev Projects\维护手册.docx" -SummaryOnly
+
+  如当前测试机的 WPS COM 会话被弹窗或外部进程阻塞，可临时增加 -PreferWordAutomation 参数，使用同一套 Range、Selection、Page 对象模型完成一致性回归。
 
 - 连页朗读：有光标时从光标处读到文档末尾；无可识别光标时从文档开头读到文档末尾。
 - 当页朗读：有光标时从光标处读到当前页末尾；无可识别光标时从当前页开头读到当前页末尾。
 - 朗读过程中，当前语句应在 WPS 文档中同步选中。
+- 朗读过程中，WPS 当前选中文本应与当前朗读文本一致。
+- 朗读过程中，WPS 当前显示页应与当前朗读句子所在页一致；跨页长句按句首所在页判断。
+- 朗读到表格时，空单元格应直接跳过，不朗读“空白内容”。
+- 文档内图片、嵌入对象等非文本元素应直接跳过，不朗读也不选中。
 - 停止朗读后，不继续播放后续句子。
 - 启动提示显示“朗读服务正在启动，请耐心等待...”。
 - 启动提示不固定倒计时关闭，进入实际播放后自动关闭。
+- 启动提示、状态检查、关于朗读等弹窗关闭后，应交回 WPS 原生窗口焦点机制处理；加载项不得主动抢占前台、恢复窗口或最小化 WPS。
+- Windows 11 文字缩放 200% 时，安装界面内容不应重叠，顶部宣传图应按比例完整显示。
 - 低性能机器上仍可点击“停止朗读”结束任务。
+- 0.75x、1x、1.2x、1.5x 四档语速均需验证可进入播放状态。
+- 目录、短句和连续短段落朗读时，下一句应尽量无明显等待；如目标机器性能较低，应以“后台预合成仍在进行、界面可停止、不会报错”为最低验收要求。
+
+## 功能按钮验收
+
+- “开始朗读”：未朗读时可用；点击后弹出启动提示，进入朗读后按钮置灰。
+- “停止朗读”：未朗读时置灰；朗读中可用；点击后立即停止朗读，并关闭启动提示。
+- “朗读方式”：停止状态可切换“连页朗读”和“当页朗读”；朗读中置灰。
+- “朗读语速”：停止状态可切换 0.75x、1x、1.2x、1.5x；朗读中置灰；默认 1.2x。
+- “状态检查”：停止状态可打开服务状态弹窗；朗读中置灰。
+- “关于朗读”：停止状态可打开关于弹窗；朗读中置灰。
+- 所有按钮图标应正常显示，不出现问号、空白或明显缩小。
 
 ## 中英文数字验收
 
 示例文本：
 
-    这是 WPS 2026 read aloud test，版本是 v1.1.7。
+    这是 WPS 2026 read aloud test，版本是 v1.1.8。
 
 预期结果：
 

@@ -7,7 +7,8 @@
     : SERVICE_ORIGIN;
   var MAX_SENTENCES = 20000;
   var MAX_SENTENCE_LENGTH = 1000;
-  var SENTENCE_END = /[。！？!?；;]+|[\r\n]+/g;
+  var SENTENCE_END = /[。！？!?；;]+|[\r\n]+|[\uFFFC\uFFFD]+/g;
+  var NON_TEXT_OBJECT = /^[\uFFFC\uFFFD]+$/;
   var WD_GO_TO_PAGE = 1;
   var WD_GO_TO_ABSOLUTE = 1;
   var WD_ACTIVE_END_PAGE_NUMBER = 3;
@@ -42,19 +43,17 @@
     var title = options && options.title ? options.title : "文档朗读";
     var width = options && options.width ? Number(options.width) : 880;
     var height = options && options.height ? Number(options.height) : 680;
-    var modal = !(options && options.startup);
+    var modal = options && options.modal !== undefined ? !!options.modal : true;
     var inWps = !!((window.wps && typeof window.wps.ShowDialog === "function") ||
       (window.Application && typeof window.Application.ShowDialog === "function"));
 
     try {
       if (window.wps && typeof window.wps.ShowDialog === "function") {
         window.wps.ShowDialog(url, title, width, height, modal);
-        focusWpsWindow();
         return null;
       }
       if (window.Application && typeof window.Application.ShowDialog === "function") {
         window.Application.ShowDialog(url, title, width, height, modal);
-        focusWpsWindow();
         return null;
       }
     } catch (_) {
@@ -79,20 +78,6 @@
     return null;
   }
 
-  function focusWpsWindow() {
-    setTimeout(function () {
-      try {
-        var app = getWpsApplication();
-        if (app && typeof app.Activate === "function") {
-          app.Activate();
-        }
-        if (app && app.ActiveWindow && typeof app.ActiveWindow.Activate === "function") {
-          app.ActiveWindow.Activate();
-        }
-      } catch (_) {}
-    }, 100);
-  }
-
   function showStartupDialog(message) {
     startupDialogId = "startup-" + Date.now() + "-" + Math.floor(Math.random() * 1000000);
     var options = {
@@ -100,6 +85,7 @@
       variant: "info",
       compact: true,
       startup: true,
+      modal: true,
       startupId: startupDialogId,
       width: 500,
       height: 170,
@@ -358,12 +344,13 @@
 
     SENTENCE_END.lastIndex = 0;
     while ((match = SENTENCE_END.exec(raw)) !== null) {
-      var end = match.index + match[0].length;
+      var isObject = NON_TEXT_OBJECT.test(match[0]);
+      var end = isObject ? match.index : match.index + match[0].length;
       pushSegment(segments, raw, base, start, end);
       if (segments.length >= MAX_SENTENCES) {
         break;
       }
-      start = end;
+      start = match.index + match[0].length;
     }
     if (segments.length < MAX_SENTENCES) {
       pushSegment(segments, raw, base, start, raw.length);
@@ -373,7 +360,8 @@
 
   function pushSegment(segments, raw, base, start, end) {
     var text = raw.slice(start, end);
-    var trimmed = text.trim();
+    var cleaned = readableSegmentText(text);
+    var trimmed = cleaned.trim();
     if (!trimmed) {
       return;
     }
@@ -388,6 +376,13 @@
     });
   }
 
+  function readableSegmentText(text) {
+    return String(text || "")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+      .replace(/[\uFFFC\uFFFD]/g, "")
+      .replace(/\uFEFF/g, "");
+  }
+
   function selectDocumentRange(segment) {
     try {
       var doc = activeDocument();
@@ -398,6 +393,12 @@
       if (range && typeof range.Select === "function") {
         range.Select();
       }
+      if (!selectionMatches(segment.text)) {
+        var found = findAndSelectSegment(doc, segment);
+        if (found) {
+          range = found;
+        }
+      }
       var app = getWpsApplication();
       if (app.ActiveWindow && typeof app.ActiveWindow.ScrollIntoView === "function") {
         app.ActiveWindow.ScrollIntoView(range, true);
@@ -405,6 +406,114 @@
     } catch (error) {
       status("选中当前语句失败：" + userMessage(error));
     }
+  }
+
+  function selectionMatches(expected) {
+    try {
+      var app = getWpsApplication();
+      var selected = app.Selection && app.Selection.Range ? String(app.Selection.Range.Text || "") : "";
+      return normalizeSelectionText(selected) === normalizeSelectionText(expected);
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function normalizeSelectionText(text) {
+    return String(text || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+      .replace(/[\uFFFC\uFFFD]/g, "")
+      .trim();
+  }
+
+  function findAndSelectSegment(doc, segment) {
+    var text = String(segment.text || "").trim();
+    if (!text || !doc.Range) {
+      return null;
+    }
+    var searchTexts = uniqueSearchTexts([
+      text,
+      normalizeSelectionText(text)
+    ]);
+    var docStart = documentStart(doc);
+    var docEnd = documentEnd(doc);
+    var segmentStart = Number(segment.start || docStart);
+    var segmentEnd = Number(segment.end || segmentStart);
+    var attempts = [
+      [Math.max(docStart, segmentStart), Math.min(docEnd, segmentEnd + 2)],
+      [Math.max(docStart, segmentStart - 20), Math.min(docEnd, segmentEnd + 20)],
+      [Math.max(docStart, segmentStart - 120), Math.min(docEnd, segmentEnd + 120)],
+      [Math.max(docStart, segmentStart - 300), Math.min(docEnd, segmentEnd + 300)]
+    ];
+    for (var i = 0; i < attempts.length; i += 1) {
+      if (attempts[i][1] <= attempts[i][0]) {
+        continue;
+      }
+      for (var j = 0; j < searchTexts.length; j += 1) {
+        try {
+          var range = doc.Range(attempts[i][0], attempts[i][1]);
+          var find = range && range.Find;
+          if (!find || typeof find.Execute !== "function") {
+            continue;
+          }
+          try {
+            if (typeof find.ClearFormatting === "function") {
+              find.ClearFormatting();
+            }
+          } catch (_) {}
+          if (find.Execute(searchTexts[j])) {
+            if (!rangeNearSegment(range, segment, attempts[i])) {
+              continue;
+            }
+            if (typeof range.Select === "function") {
+              range.Select();
+            }
+            if (selectionMatches(text)) {
+              return range;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
+  function rangeNearSegment(range, segment, attempt) {
+    try {
+      var start = Number(range.Start);
+      var end = Number(range.End);
+      if (isNaN(start) || isNaN(end)) {
+        return false;
+      }
+      if (start < attempt[0] || end > attempt[1]) {
+        return false;
+      }
+      return start >= Number(segment.start || 0) - 300 && end <= Number(segment.end || 0) + 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function uniqueSearchTexts(values) {
+    var result = [];
+    for (var i = 0; i < values.length; i += 1) {
+      var value = String(values[i] || "").trim();
+      if (!value) {
+        continue;
+      }
+      var exists = false;
+      for (var j = 0; j < result.length; j += 1) {
+        if (result[j] === value) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists) {
+        result.push(value);
+      }
+    }
+    return result;
   }
 
   async function request(path, options) {
@@ -460,7 +569,6 @@
     setReadingState(true);
     lastSelectedIndex = -1;
     status("朗读服务正在启动。");
-    startupPopup = showStartupDialog(startupMessage);
 
     try {
       await request("/read/start", {
@@ -474,6 +582,7 @@
           prefetch: 0
         })
       });
+      startupPopup = showStartupDialog(startupMessage);
       await pollReadStatus(token, segments, startupPopup);
     } catch (error) {
       if (token === playbackToken) {
@@ -756,8 +865,8 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.1.7" },
-        { label: "发布日期", value: "20260522" },
+        { label: "版本", value: "1.1.8" },
+        { label: "发布日期", value: "20260523" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
         { label: "支持系统", value: "x86/x64 Windows 10/11；x64 银河麒麟 V10+；ARM64 银河麒麟 V10+；x64 UOS V20；ARM64 UOS V20" },

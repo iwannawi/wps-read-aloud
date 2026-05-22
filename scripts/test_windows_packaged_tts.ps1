@@ -1,0 +1,120 @@
+param(
+  [string]$Version = "",
+  [string[]]$Sentences = @(),
+  [double[]]$Rates = @(0.75, 1.0, 1.2, 1.5)
+)
+
+$ErrorActionPreference = "Stop"
+
+function TextFromCodes([int[]]$Codes) {
+  return -join ($Codes | ForEach-Object { [char]$_ })
+}
+
+if ($Sentences.Count -eq 0) {
+  $toc = TextFromCodes @(0x76ee, 0x20, 0x20, 0x5f55)
+  $background = TextFromCodes @(0x0058, 0x0043, 0x9879, 0x76ee, 0x80cc, 0x666f, 0x4e0e, 0x9700, 0x6c42)
+  $format = TextFromCodes @(0x6587, 0x6863, 0x683c, 0x5f0f, 0x7edf, 0x4e00, 0x5ef6, 0x7eed)
+  $product = TextFromCodes @(0x004f, 0x0066, 0x0066, 0x0069, 0x0063, 0x0065, 0x4ea7, 0x54c1, 0x65b9, 0x6848)
+  $Sentences = @(
+    $toc,
+    "1. $background`t1",
+    "1.1. $format`t1",
+    "WPS $product`t2",
+    $background
+  )
+}
+
+function Get-FreeTcpPort {
+  $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), 0)
+  $listener.Start()
+  try {
+    return [int]$listener.LocalEndpoint.Port
+  } finally {
+    $listener.Stop()
+  }
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+  $platforms = Get-Content -Raw -Encoding UTF8 -LiteralPath "packaging\platforms.json" | ConvertFrom-Json
+  $Version = [string]$platforms.version
+}
+
+$app = Join-Path (Get-Location) ("build\windows\wps-read-aloud-comate_{0}_windows_x86\app" -f $Version)
+$exe = Join-Path $app "daemon\wps-tts-daemon.exe"
+if (!(Test-Path -LiteralPath $exe)) {
+  throw "Windows packaged daemon does not exist: $exe"
+}
+
+$port = Get-FreeTcpPort
+$baseUrl = "http://127.0.0.1:$port"
+$cfg = Join-Path $app ("config-test-" + [guid]::NewGuid().ToString("N") + ".yaml")
+$configLines = @(
+  "listen: `"127.0.0.1:$port`"",
+  "sherpa:",
+  "  bin: `"engines/sherpa-onnx/sherpa-onnx-offline-tts.exe`"",
+  "  num_threads: 4",
+  "  target_sample_rate: 16000",
+  "  vits_model: `"voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx`"",
+  "  vits_lexicon: `"voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt`"",
+  "  vits_tokens: `"voices/sherpa/vits-zh-hf-fanchen-C/tokens.txt`"",
+  "  vits_rule_fsts: `"voices/sherpa/vits-zh-hf-fanchen-C/phone.fst,voices/sherpa/vits-zh-hf-fanchen-C/date.fst,voices/sherpa/vits-zh-hf-fanchen-C/number.fst,voices/sherpa/vits-zh-hf-fanchen-C/new_heteronym.fst`"",
+  "  vits_speaker_id: 14"
+)
+Set-Content -LiteralPath $cfg -Encoding ASCII -Value $configLines
+
+$process = Start-Process -FilePath $exe -WorkingDirectory $app -ArgumentList @("-config", $cfg) -WindowStyle Hidden -PassThru
+try {
+  $healthy = $false
+  for ($i = 0; $i -lt 40; $i += 1) {
+    try {
+      $health = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/health" -TimeoutSec 2
+      if ($health.Content -match ('"version":"' + [regex]::Escape($Version) + '"')) {
+        $healthy = $true
+        break
+      }
+    } catch {}
+    Start-Sleep -Milliseconds 500
+  }
+  if (!$healthy) {
+    throw "Test service did not become healthy as $Version."
+  }
+
+  foreach ($rate in $Rates) {
+    $body = @{
+      sentences = @($Sentences | ForEach-Object { @{ text = $_ } })
+      rate = $rate
+      prefetch = 0
+    } | ConvertTo-Json -Depth 5
+    Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/start" -Method POST -ContentType "application/json" -Body $body -TimeoutSec 20 | Out-Null
+
+    $reached = $false
+    $last = ""
+    for ($i = 0; $i -lt 80; $i += 1) {
+      $last = (Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/status" -TimeoutSec 2).Content
+      if ($last -match '"state":"playing"' -or $last -match '"state":"stopped"') {
+        $reached = $true
+        break
+      }
+      if ($last -match '"state":"error"') {
+        throw "Read entered error state at rate ${rate}: $last"
+      }
+      Start-Sleep -Milliseconds 500
+    }
+    Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/stop" -Method POST -TimeoutSec 5 | Out-Null
+    if (!$reached) {
+      throw "Read did not reach playable state at rate ${rate}: $last"
+    }
+  }
+
+  [pscustomobject]@{
+    Ok = $true
+    Version = $Version
+    Port = $port
+    Sentences = $Sentences.Count
+    Rates = $Rates
+  } | ConvertTo-Json -Depth 4
+} finally {
+  try { Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/stop" -Method POST -TimeoutSec 2 | Out-Null } catch {}
+  Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $cfg -ErrorAction SilentlyContinue
+}

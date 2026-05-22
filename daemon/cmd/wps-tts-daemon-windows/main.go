@@ -85,9 +85,9 @@ type audioCacheEntry struct {
 }
 
 const (
-	prefetchTextTarget           = 100
-	prefetchSentenceLimit        = 4
-	synthConcurrencyLimit        = 2
+	prefetchTextTarget           = 240
+	prefetchSentenceLimit        = 8
+	synthConcurrencyLimit        = 3
 	pauseBaseRate                = 1.2
 	standardPauseMsAtBaseRate    = 400
 	sentenceEndPauseMsAtBaseRate = 600
@@ -540,6 +540,9 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 		if lastErr == nil {
 			return tmpPath, nil
 		}
+		if attempt+1 < len(candidates) {
+			continue
+		}
 		if !isTokenIDFailure(lastErr) {
 			break
 		}
@@ -576,9 +579,6 @@ func (s *Server) runSherpa(ctx context.Context, outputPath string, text string, 
 		return nil
 	}
 	detail := strings.TrimSpace(output.String())
-	if len(detail) > 1200 {
-		detail = detail[:1200]
-	}
 	if detail != "" {
 		return fmt.Errorf("sherpa-onnx failed: %w: %s", err, detail)
 	}
@@ -710,7 +710,7 @@ func pageRangeText(text string) string {
 func ttsTextCandidates(text string) []string {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return []string{"空白内容"}
+		return nil
 	}
 	candidates := []string{text}
 	if shortCJKText(text) {
@@ -1115,6 +1115,15 @@ func compactErrorDetail(text string) string {
 func cleanText(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
+	text = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if r < 32 || r == '\ufeff' || r == '\ufffc' || r == '\ufffd' {
+			return -1
+		}
+		return r
+	}, text)
 	var lines []string
 	for _, line := range strings.Split(text, "\n") {
 		lines = append(lines, strings.TrimSpace(line))
