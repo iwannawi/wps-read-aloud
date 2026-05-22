@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.5
+版本：1.1.6
 发布时间：20260522
 开发者：Zhang Jingyao
 
@@ -18,27 +18,27 @@
 
 ## 变更
 
-- 长文档朗读上限从 1000 句提升到 20000 句，并将朗读请求体上限提升到 64 MB。
-- 长文档总文本保护上限调整为 200 万字符，单句仍保留 1000 字保护，避免异常长句拖垮语音合成。
-- 预合成策略保留累计约 100 字的启动缓冲，同时增加每轮最多 6 句的并发上限。
-- Windows 安装对话框调整为 900×660 客户区，在 1024×768 屏幕下可完整显示；安装路径、进度和执行信息区域同步加宽加高。
+- Windows 播放链路改为直接调用系统 WinMM 接口播放 WAV，不再为每句朗读启动 PowerShell 播放进程。
+- Windows 启动朗读时只等待第一句合成完成，后续句子在后台继续预合成，避免长文档被启动预热阶段拖慢或提前失败。
+- Windows 语音合成增加并发闸门，预合成窗口最多 4 句，同时运行的 Sherpa-onnx 合成进程最多 2 个，单个合成进程最多使用 4 个 CPU 线程。
+- 中英文与符号预处理增加控制字符、私有区字符、表情符号等清洗逻辑，降低长文档中个别特殊字符导致合成失败的概率。
+- Windows 朗读失败提示改为包含具体句号和底层错误摘要，不再把短文档可用场景误报为安装包完整性问题。
 
 ## 修复
 
-- 修复短句较多的长文档启动朗读时，预合成并发过高导致 Sherpa-onnx 启动失败的问题。
-- 修复 1000 句以上文档被前端或后端截断后无法按预期朗读的问题。
-- 修复 Windows 安装对话框过小，安装路径和执行信息显示不完整的问题。
-- 修复构建目录中旧 GitHub Release 日志残留时，全量发布包校验失败的问题。
+- 修复 Windows 长文档朗读时，因启动阶段等待多句预合成和逐句 PowerShell 播放带来的进程开销过高，导致朗读一开始就失败的问题。
+- 修复 Windows 环境启动朗读等待时间明显长于 Linux 的问题，减少每句播放前后的额外进程启动成本。
+- 修复长文档中包含未映射特殊符号时，语音合成错误提示不准确的问题。
 
 ## 交付文件
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.5_windows.exe |
-| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.5_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.5_arm64.deb |
-| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.5_amd64.deb |
-| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.5_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.6_windows.exe |
+| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.6_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.6_arm64.deb |
+| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.6_amd64.deb |
+| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.6_arm64.deb |
 
 ## 已知限制
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = os.environ.get("VERSION", "1.1.5")
+VERSION = os.environ.get("VERSION", "1.1.6")
 RELEASE_DATE = os.environ.get("RELEASE_DATE", "20260522")
 WINDOWS_ARCH = os.environ.get("WINDOWS_ARCH", "386")
 ARCH_LABEL = "x86" if WINDOWS_ARCH in {"386", "x86"} else WINDOWS_ARCH
@@ -60,7 +60,7 @@ def write_windows_config(target: Path) -> None:
                 'listen: "127.0.0.1:19860"',
                 "sherpa:",
                 '  bin: "engines/sherpa-onnx/sherpa-onnx-offline-tts.exe"',
-                "  num_threads: 2",
+                "  num_threads: 4",
                 "  target_sample_rate: 16000",
                 '  vits_model: "voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx"',
                 '  vits_lexicon: "voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt"',

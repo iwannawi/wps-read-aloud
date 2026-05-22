@@ -34,3 +34,17 @@ func TestWindowsPrefetchCountUsesDynamicTextWindow(t *testing.T) {
 		t.Fatalf("prefetchCount for short sentences = %d, want 4", got)
 	}
 }
+
+func TestWindowsSherpaNumThreadsIsCapped(t *testing.T) {
+	cases := map[int]int{
+		0: 1,
+		1: 1,
+		4: 4,
+		8: 4,
+	}
+	for input, want := range cases {
+		if got := sherpaNumThreads(input); got != want {
+			t.Fatalf("sherpaNumThreads(%d) = %d, want %d", input, got, want)
+		}
+	}
+}

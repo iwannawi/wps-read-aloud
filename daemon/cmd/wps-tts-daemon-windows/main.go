@@ -20,8 +20,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode"
+	"unsafe"
 )
 
 type Config struct {
@@ -51,11 +53,12 @@ type ReadStartRequest struct {
 }
 
 type Server struct {
-	root    string
-	cfg     Config
-	mu      sync.Mutex
-	session *Session
-	current map[*exec.Cmd]bool
+	root     string
+	cfg      Config
+	mu       sync.Mutex
+	session  *Session
+	current  map[*exec.Cmd]bool
+	synthSem chan struct{}
 }
 
 type Session struct {
@@ -83,7 +86,8 @@ type audioCacheEntry struct {
 
 const (
 	prefetchTextTarget           = 100
-	prefetchSentenceLimit        = 6
+	prefetchSentenceLimit        = 4
+	synthConcurrencyLimit        = 2
 	pauseBaseRate                = 1.2
 	standardPauseMsAtBaseRate    = 400
 	sentenceEndPauseMsAtBaseRate = 600
@@ -94,6 +98,8 @@ const (
 )
 
 var asciiTokenRE = regexp.MustCompile(`[A-Za-z0-9]+(?:[._+\-][A-Za-z0-9]+)*`)
+var winmm = syscall.NewLazyDLL("winmm.dll")
+var procPlaySoundW = winmm.NewProc("PlaySoundW")
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "config file path")
@@ -104,7 +110,7 @@ func main() {
 		log.Printf("load config failed, using defaults: %v", err)
 	}
 	cfg = absolutizeConfig(root, cfg)
-	server := &Server{root: root, cfg: cfg, current: make(map[*exec.Cmd]bool)}
+	server := &Server{root: root, cfg: cfg, current: make(map[*exec.Cmd]bool), synthSem: make(chan struct{}, synthConcurrencyLimit)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.health)
 	mux.HandleFunc("/selftest", server.selftest)
@@ -126,7 +132,7 @@ func defaultConfig() Config {
 		Listen: "127.0.0.1:19860",
 		Sherpa: SherpaConfig{
 			Bin:              "engines/sherpa-onnx/sherpa-onnx-offline-tts.exe",
-			NumThreads:       2,
+			NumThreads:       4,
 			TargetSampleRate: 16000,
 			VitsModel:        "voices/sherpa/vits-zh-hf-fanchen-C/vits-zh-hf-fanchen-C.onnx",
 			VitsLexicon:      "voices/sherpa/vits-zh-hf-fanchen-C/lexicon.txt",
@@ -184,13 +190,13 @@ func (s *Server) audioProbe(w http.ResponseWriter, r *http.Request) {
 
 func audioProbeInfo() map[string]any {
 	return map[string]any{
-		"selected":  "Windows SoundPlayer",
+		"selected":  "Windows WinMM",
 		"probed_at": time.Now().Format("2006-01-02 15:04:05"),
 		"results": []map[string]string{
 			{
-				"name":    "Windows SoundPlayer",
+				"name":    "Windows WinMM",
 				"status":  "ok",
-				"message": "使用 Windows 内置 SoundPlayer 播放 WAV 音频。",
+				"message": "使用 Windows 原生 WinMM 接口播放 WAV 音频。",
 			},
 		},
 	}
@@ -345,18 +351,20 @@ func (s *Server) clearCurrent(cmd *exec.Cmd) {
 
 func (ss *Session) run() {
 	defer ss.cleanup()
-	warmup := ss.prefetchCount(0)
 	ss.setState("preparing", "朗读服务正在启动，请耐心等待", -1)
-	for i := 0; i < warmup; i++ {
-		entry := ss.ensureAudio(i)
-		if err := ss.waitEntry(entry); err != nil {
-			if ss.ctx.Err() != nil {
-				ss.setState("stopped", "朗读已停止", -1)
-				return
-			}
-			ss.setState("error", friendlyError(err), -1)
+	if len(ss.sentences) == 0 {
+		ss.setState("done", "朗读完成", -1)
+		return
+	}
+	first := ss.ensureAudio(0)
+	ss.ensurePrefetch(1)
+	if err := ss.waitEntry(first); err != nil {
+		if ss.ctx.Err() != nil {
+			ss.setState("stopped", "朗读已停止", -1)
 			return
 		}
+		ss.setState("error", friendlyErrorAt(err, 0), 0)
+		return
 	}
 	for i := range ss.sentences {
 		if ss.ctx.Err() != nil {
@@ -370,7 +378,7 @@ func (ss *Session) run() {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
-				ss.setState("error", friendlyError(err), i)
+				ss.setState("error", friendlyErrorAt(err, i), i)
 			}
 			return
 		}
@@ -379,7 +387,7 @@ func (ss *Session) run() {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
-				ss.setState("error", friendlyError(err), i)
+				ss.setState("error", friendlyErrorAt(err, i), i)
 			}
 			return
 		}
@@ -500,6 +508,12 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 	if !fileExists(s.cfg.Sherpa.Bin) {
 		return "", errors.New("no available tts engine")
 	}
+	select {
+	case s.synthSem <- struct{}{}:
+		defer func() { <-s.synthSem }()
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 	tmp, err := os.CreateTemp("", "wps-read-aloud-*.wav")
 	if err != nil {
 		return "", err
@@ -511,7 +525,7 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 		"--vits-lexicon=" + s.cfg.Sherpa.VitsLexicon,
 		"--vits-tokens=" + s.cfg.Sherpa.VitsTokens,
 		"--sid=" + strconv.Itoa(s.cfg.Sherpa.VitsSpeakerID),
-		"--num-threads=" + strconv.Itoa(s.cfg.Sherpa.NumThreads),
+		"--num-threads=" + strconv.Itoa(sherpaNumThreads(s.cfg.Sherpa.NumThreads)),
 		"--vits-noise-scale=0.667",
 		"--vits-noise-scale-w=0.8",
 		"--vits-length-scale=" + fmt.Sprintf("%.3f", 1/clampRate(rate)),
@@ -544,18 +558,61 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 }
 
 func (s *Server) play(ctx context.Context, wav string) error {
-	script := fmt.Sprintf("(New-Object Media.SoundPlayer %q).PlaySync()", wav)
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-Command", script)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	s.setCurrent(cmd)
-	err := cmd.Run()
-	s.clearCurrent(cmd)
-	return err
+	done := make(chan error, 1)
+	go func() {
+		done <- playWavSync(wav)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		stopWavPlayback()
+		<-done
+		return ctx.Err()
+	}
+}
+
+func playWavSync(path string) error {
+	ptr, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	ret, _, callErr := procPlaySoundW.Call(
+		uintptr(unsafe.Pointer(ptr)),
+		0,
+		uintptr(0x00020000),
+	)
+	if ret == 0 {
+		if callErr != syscall.Errno(0) {
+			return fmt.Errorf("Windows 音频播放失败：%w", callErr)
+		}
+		return errors.New("Windows 音频播放失败")
+	}
+	return nil
+}
+
+func stopWavPlayback() {
+	procPlaySoundW.Call(0, 0, 0)
 }
 
 func preprocessFanchenText(text string, rate float64) string {
-	text = strings.NewReplacer("　", " ", "℃", "摄氏度", "&", "和").Replace(text)
+	text = strings.NewReplacer(
+		"　", " ",
+		"℃", "摄氏度",
+		"&", "和",
+		"@", " 艾特 ",
+		"#", " 井号 ",
+		"$", " 美元 ",
+		"￥", " 元 ",
+		"¥", " 元 ",
+		"€", " 欧元 ",
+		"→", " 到 ",
+		"←", " 到 ",
+		"—", " ",
+		"–", " ",
+		"•", " ",
+		"·", " ",
+	).Replace(text)
 	text = asciiTokenRE.ReplaceAllStringFunc(text, func(token string) string {
 		var parts []string
 		for _, r := range token {
@@ -591,7 +648,32 @@ func preprocessFanchenText(text string, rate float64) string {
 		"%", " 百分号 ",
 		"％", " 百分号 ",
 	).Replace(text)
+	text = sanitizeTtsRunes(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
+}
+
+func sanitizeTtsRunes(text string) string {
+	var out []rune
+	for _, r := range text {
+		switch {
+		case r == '\n' || r == '\r' || r == '\t':
+			out = append(out, ' ')
+		case unicode.IsControl(r) || unicode.In(r, unicode.Cf) || isPrivateUseOrSurrogate(r):
+			out = append(out, ' ')
+		case unicode.IsSymbol(r):
+			out = append(out, ' ')
+		default:
+			out = append(out, r)
+		}
+	}
+	return string(out)
+}
+
+func isPrivateUseOrSurrogate(r rune) bool {
+	return (r >= 0xD800 && r <= 0xDFFF) ||
+		(r >= 0xE000 && r <= 0xF8FF) ||
+		(r >= 0xF0000 && r <= 0xFFFFD) ||
+		(r >= 0x100000 && r <= 0x10FFFD)
 }
 
 func normalizeTtsPunctuationSpacing(text string, rate float64) string {
@@ -886,10 +968,35 @@ func friendlyError(err error) string {
 	case strings.Contains(msg, "no available tts engine"):
 		return "朗读引擎不可用，请重新安装加载项安装包。"
 	case strings.Contains(msg, "sherpa-onnx failed"):
-		return "Sherpa-onnx 语音引擎启动失败，请检查安装包完整性。"
+		return "语音合成失败。短文档可正常朗读时，通常不是安装包损坏，而是当前句包含模型不支持的特殊字符，或系统资源不足导致本句合成失败。"
 	default:
 		return "朗读失败，请稍后重试。"
 	}
+}
+
+func friendlyErrorAt(err error, index int) string {
+	message := friendlyError(err)
+	if index >= 0 {
+		message = "第 " + strconv.Itoa(index+1) + " 句" + message
+	}
+	detail := compactErrorDetail(err.Error())
+	if detail != "" {
+		message += " 详细原因：" + detail
+	}
+	return message
+}
+
+func compactErrorDetail(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimPrefix(text, "sherpa-onnx failed:")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	if len([]rune(text)) > 180 {
+		return string([]rune(text)[:180]) + "..."
+	}
+	return text
 }
 
 func cleanText(text string) string {
@@ -913,6 +1020,16 @@ func clampRate(rate float64) float64 {
 		return 2.0
 	}
 	return rate
+}
+
+func sherpaNumThreads(numThreads int) int {
+	if numThreads < 1 {
+		return 1
+	}
+	if numThreads > 4 {
+		return 4
+	}
+	return numThreads
 }
 
 func fileExists(path string) bool {

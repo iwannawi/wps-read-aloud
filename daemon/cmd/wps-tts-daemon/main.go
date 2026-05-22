@@ -677,18 +677,20 @@ func (s *Server) stopLocked() {
 
 func (rs *readSession) run() {
 	defer rs.cleanup()
-	warmup := rs.prefetchCount(0)
 	rs.setState("preparing", "朗读服务正在启动，请耐心等待", -1)
-	for i := 0; i < warmup; i++ {
-		entry := rs.ensureAudio(i)
-		if err := rs.waitEntry(entry); err != nil {
-			if rs.ctx.Err() != nil {
-				rs.setState("stopped", "朗读已停止", -1)
-				return
-			}
-			rs.fail(err)
+	if len(rs.sentences) == 0 {
+		rs.setState("done", "朗读完成", -1)
+		return
+	}
+	first := rs.ensureAudio(0)
+	rs.ensurePrefetch(1)
+	if err := rs.waitEntry(first); err != nil {
+		if rs.ctx.Err() != nil {
+			rs.setState("stopped", "朗读已停止", -1)
 			return
 		}
+		rs.fail(err)
+		return
 	}
 	for i := range rs.sentences {
 		if rs.ctx.Err() != nil {
@@ -1227,6 +1229,18 @@ func preprocessFanchenText(text string, rate float64) string {
 		"　", " ",
 		"℃", "摄氏度",
 		"&", "和",
+		"@", " 艾特 ",
+		"#", " 井号 ",
+		"$", " 美元 ",
+		"￥", " 元 ",
+		"¥", " 元 ",
+		"€", " 欧元 ",
+		"→", " 到 ",
+		"←", " 到 ",
+		"—", " ",
+		"–", " ",
+		"•", " ",
+		"·", " ",
 	)
 	text = replacer.Replace(text)
 	text = asciiTokenRE.ReplaceAllStringFunc(text, func(token string) string {
@@ -1264,7 +1278,32 @@ func preprocessFanchenText(text string, rate float64) string {
 		"%", " 百分号 ",
 		"％", " 百分号 ",
 	).Replace(text)
+	text = sanitizeTtsRunes(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
+}
+
+func sanitizeTtsRunes(text string) string {
+	var out []rune
+	for _, r := range text {
+		switch {
+		case r == '\n' || r == '\r' || r == '\t':
+			out = append(out, ' ')
+		case unicode.IsControl(r) || unicode.In(r, unicode.Cf) || isPrivateUseOrSurrogate(r):
+			out = append(out, ' ')
+		case unicode.IsSymbol(r):
+			out = append(out, ' ')
+		default:
+			out = append(out, r)
+		}
+	}
+	return string(out)
+}
+
+func isPrivateUseOrSurrogate(r rune) bool {
+	return (r >= 0xD800 && r <= 0xDFFF) ||
+		(r >= 0xE000 && r <= 0xF8FF) ||
+		(r >= 0xF0000 && r <= 0xFFFFD) ||
+		(r >= 0x100000 && r <= 0x10FFFD)
 }
 
 func normalizeTtsPunctuationSpacing(text string, rate float64) string {
