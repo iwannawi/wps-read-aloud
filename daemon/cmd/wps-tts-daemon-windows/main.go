@@ -83,9 +83,14 @@ type audioCacheEntry struct {
 
 const (
 	prefetchTextTarget           = 100
+	prefetchSentenceLimit        = 6
 	pauseBaseRate                = 1.2
 	standardPauseMsAtBaseRate    = 400
 	sentenceEndPauseMsAtBaseRate = 600
+	maxReadRequestBytes          = 64 << 20
+	maxReadSentences             = 20000
+	maxReadTextRunes             = 2000000
+	maxSentenceRunes             = 1000
 )
 
 var asciiTokenRE = regexp.MustCompile(`[A-Za-z0-9]+(?:[._+\-][A-Za-z0-9]+)*`)
@@ -216,16 +221,30 @@ func (s *Server) readStart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxReadRequestBytes)).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "请求格式不正确，请重新打开 WPS 后再试。")
 		return
 	}
 	req.Rate = clampRate(req.Rate)
 	var sentences []ReadSentence
+	var totalRunes int
 	for _, sentence := range req.Sentences {
 		text := cleanText(sentence.Text)
-		if text != "" {
-			sentences = append(sentences, ReadSentence{Text: text})
+		if text == "" {
+			continue
+		}
+		runes := []rune(text)
+		if len(runes) > maxSentenceRunes {
+			runes = runes[:maxSentenceRunes]
+			text = string(runes)
+		}
+		totalRunes += len(runes)
+		if totalRunes > maxReadTextRunes {
+			break
+		}
+		sentences = append(sentences, ReadSentence{Text: text})
+		if len(sentences) >= maxReadSentences {
+			break
 		}
 	}
 	if len(sentences) == 0 {
@@ -390,7 +409,7 @@ func (ss *Session) prefetchCount(start int) int {
 	}
 	count := 0
 	runes := 0
-	for i := start; i < len(ss.sentences); i++ {
+	for i := start; i < len(ss.sentences) && count < prefetchSentenceLimit; i++ {
 		count++
 		runes += len([]rune(ss.sentences[i].Text))
 		if runes >= prefetchTextTarget {

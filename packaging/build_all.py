@@ -18,8 +18,11 @@ INTERMEDIATE_PREFIXES = (
     "wps-tts-daemon-windows-",
 )
 RELEASE_FILE_PREFIXES = (
-    "wps-read-aloud-comate_",
-    "cn.wps-read-aloud-comate_",
+	"wps-read-aloud-comate_",
+	"cn.wps-read-aloud-comate_",
+)
+STALE_DIST_FILE_PREFIXES = (
+	"github-release-",
 )
 
 
@@ -134,11 +137,15 @@ def cleanup_intermediate_binaries():
 
 
 def cleanup_stale_release_files():
-    if not DIST.is_dir():
-        return
-    for path in DIST.iterdir():
-        if path.is_file() and any(path.name.startswith(prefix) for prefix in RELEASE_FILE_PREFIXES):
-            path.unlink()
+	if not DIST.is_dir():
+		return
+	for path in DIST.iterdir():
+		if not path.is_file():
+			continue
+		if any(path.name.startswith(prefix) for prefix in RELEASE_FILE_PREFIXES):
+			path.unlink()
+		elif any(path.name.startswith(prefix) for prefix in STALE_DIST_FILE_PREFIXES):
+			path.unlink()
 
 
 def check_platform_inputs_if_all_targets(targets, selected_targets):

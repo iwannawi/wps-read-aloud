@@ -114,7 +114,7 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
-$form.ClientSize = New-Object System.Drawing.Size(680, 536)
+$form.ClientSize = New-Object System.Drawing.Size(900, 660)
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Point)
 $form.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 253)
@@ -128,7 +128,7 @@ if (Test-Path $iconPath) {
 
 $header = New-Object System.Windows.Forms.Panel
 $header.Location = New-Object System.Drawing.Point(0, 0)
-$header.Size = New-Object System.Drawing.Size(680, 272)
+$header.Size = New-Object System.Drawing.Size(900, 360)
 $header.BackColor = [System.Drawing.Color]::White
 $header.Add_Paint({
   param($sender, $e)
@@ -172,7 +172,7 @@ $pathTitle = New-Object System.Windows.Forms.Label
 $pathTitle.Text = "安装路径"
 $pathTitle.AutoSize = $true
 $pathTitle.ForeColor = [System.Drawing.Color]::FromArgb(36, 48, 64)
-$pathTitle.Location = New-Object System.Drawing.Point(38, 296)
+$pathTitle.Location = New-Object System.Drawing.Point(46, 386)
 $pathTitle.UseCompatibleTextRendering = $false
 $form.Controls.Add($pathTitle)
 
@@ -180,14 +180,14 @@ $pathBox = New-Object System.Windows.Forms.TextBox
 $pathBox.Text = $InstallDir
 $pathBox.ReadOnly = $true
 $pathBox.BorderStyle = "FixedSingle"
-$pathBox.Location = New-Object System.Drawing.Point(116, 291)
-$pathBox.Size = New-Object System.Drawing.Size(526, 28)
+$pathBox.Location = New-Object System.Drawing.Point(150, 381)
+$pathBox.Size = New-Object System.Drawing.Size(704, 32)
 $pathBox.ForeColor = [System.Drawing.Color]::FromArgb(20, 28, 42)
 $form.Controls.Add($pathBox)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(38, 340)
-$progressBar.Size = New-Object System.Drawing.Size(604, 22)
+$progressBar.Location = New-Object System.Drawing.Point(46, 440)
+$progressBar.Size = New-Object System.Drawing.Size(808, 26)
 $progressBar.Minimum = 0
 $progressBar.Maximum = 100
 $form.Controls.Add($progressBar)
@@ -197,7 +197,7 @@ $actionLabel.Text = "准备开始安装"
 $actionLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Bold)
 $actionLabel.AutoSize = $true
 $actionLabel.ForeColor = [System.Drawing.Color]::FromArgb(31, 41, 55)
-$actionLabel.Location = New-Object System.Drawing.Point(38, 386)
+$actionLabel.Location = New-Object System.Drawing.Point(46, 490)
 $actionLabel.UseCompatibleTextRendering = $false
 $form.Controls.Add($actionLabel)
 
@@ -205,7 +205,7 @@ $detailLabel = New-Object System.Windows.Forms.Label
 $detailLabel.Text = "请稍候。"
 $detailLabel.AutoSize = $true
 $detailLabel.ForeColor = [System.Drawing.Color]::FromArgb(52, 64, 84)
-$detailLabel.Location = New-Object System.Drawing.Point(38, 414)
+$detailLabel.Location = New-Object System.Drawing.Point(46, 520)
 $detailLabel.UseCompatibleTextRendering = $false
 $form.Controls.Add($detailLabel)
 
@@ -217,15 +217,15 @@ $detailBox.BorderStyle = "FixedSingle"
 $detailBox.BackColor = [System.Drawing.Color]::White
 $detailBox.ForeColor = [System.Drawing.Color]::FromArgb(20, 28, 42)
 $detailBox.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9.5)
-$detailBox.Location = New-Object System.Drawing.Point(38, 444)
-$detailBox.Size = New-Object System.Drawing.Size(604, 42)
+$detailBox.Location = New-Object System.Drawing.Point(46, 548)
+$detailBox.Size = New-Object System.Drawing.Size(808, 58)
 $form.Controls.Add($detailBox)
 
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Text = "安装中"
 $closeButton.Enabled = $false
-$closeButton.Location = New-Object System.Drawing.Point(290, 496)
-$closeButton.Size = New-Object System.Drawing.Size(100, 34)
+$closeButton.Location = New-Object System.Drawing.Point(390, 616)
+$closeButton.Size = New-Object System.Drawing.Size(120, 38)
 $closeButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
 $closeButton.Add_Click({ $form.Close() })
 $form.Controls.Add($closeButton)

@@ -70,6 +70,7 @@
 - Windows Sherpa-onnx 当前不支持 --tts-sample-rate。
 - 如果出现“Sherpa-onnx 语音引擎启动失败”，先运行 payload 内 sherpa-onnx-offline-tts.exe --help，再用完整参数直接合成 WAV。
 - Windows PowerShell 写配置文件可能带 UTF-8 BOM。Go 简易 YAML 解析器必须去掉行首 BOM，否则 listen 会回退到默认端口。
+- 长文档预合成不能只按累计字数判断。短句文档会在启动阶段并发创建大量 Sherpa 进程，必须同时设置每轮预合成句数上限。
 - 逗号、顿号、冒号、分号等句内标点不要拆成多个 TTS 任务。
 - 推荐策略是句内文本节奏提示加句末 WAV 静音。
 

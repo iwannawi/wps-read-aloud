@@ -33,9 +33,14 @@ import (
 var webFS embed.FS
 
 const prefetchTextTarget = 100
+const prefetchSentenceLimit = 6
 const pauseBaseRate = 1.2
 const standardPauseMsAtBaseRate = 400
 const sentenceEndPauseMsAtBaseRate = 600
+const maxReadRequestBytes = 64 << 20
+const maxReadSentences = 20000
+const maxReadTextRunes = 2000000
+const maxSentenceRunes = 1000
 
 type AppInfo struct {
 	Name         string `json:"name"`
@@ -410,7 +415,7 @@ func (s *Server) decodeReadStartRequest(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return req, false
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxReadRequestBytes)).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "请求格式不正确，请重新打开 WPS 后再试。")
 		return req, false
 	}
@@ -428,9 +433,6 @@ func (s *Server) decodeReadStartRequest(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "没有可朗读的句子，请先选择文档内容。")
 		return req, false
 	}
-	if len(req.Sentences) > 1000 {
-		req.Sentences = req.Sentences[:1000]
-	}
 	var total int
 	out := req.Sentences[:0]
 	for _, sentence := range req.Sentences {
@@ -438,14 +440,19 @@ func (s *Server) decodeReadStartRequest(w http.ResponseWriter, r *http.Request) 
 		if text == "" {
 			continue
 		}
-		if len([]rune(text)) > 1000 {
-			text = string([]rune(text)[:1000])
+		runes := []rune(text)
+		if len(runes) > maxSentenceRunes {
+			runes = runes[:maxSentenceRunes]
+			text = string(runes)
 		}
-		total += len([]rune(text))
-		if total > 200000 {
+		total += len(runes)
+		if total > maxReadTextRunes {
 			break
 		}
 		out = append(out, ReadSentence{Text: text})
+		if len(out) >= maxReadSentences {
+			break
+		}
 	}
 	req.Sentences = out
 	if len(req.Sentences) == 0 {
@@ -739,7 +746,7 @@ func (rs *readSession) prefetchCount(start int) int {
 	}
 	count := 0
 	runes := 0
-	for i := start; i < total; i++ {
+	for i := start; i < total && count < prefetchSentenceLimit; i++ {
 		count++
 		runes += utf8.RuneCountInString(rs.sentences[i].Text)
 		if runes >= prefetchTextTarget {
