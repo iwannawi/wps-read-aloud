@@ -98,6 +98,9 @@ const (
 )
 
 var asciiTokenRE = regexp.MustCompile(`[A-Za-z0-9]+(?:[._+\-][A-Za-z0-9]+)*`)
+var tocLeaderPageRE = regexp.MustCompile(`[.·•…⋯・．\s]{2,}([0-9]+(?:[-–—][0-9]+)?)\s*$`)
+var purePageNumberRE = regexp.MustCompile(`^\s*[0-9]+(?:[-–—][0-9]+)?\s*$`)
+var wordTocFieldRE = regexp.MustCompile(`(?i)\bTOC\b(?:\s+\\[A-Za-z]+(?:\s+"[^"]*")?)*`)
 var winmm = syscall.NewLazyDLL("winmm.dll")
 var procPlaySoundW = winmm.NewProc("PlaySoundW")
 
@@ -520,6 +523,32 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 	}
 	tmpPath := tmp.Name()
 	tmp.Close()
+	prepared := preprocessFanchenText(text, rate)
+	candidates := ttsTextCandidates(prepared)
+	var lastErr error
+	for attempt, candidate := range candidates {
+		if attempt > 0 {
+			os.Remove(tmpPath)
+			tmp, err := os.CreateTemp("", "wps-read-aloud-*.wav")
+			if err != nil {
+				return "", err
+			}
+			tmpPath = tmp.Name()
+			tmp.Close()
+		}
+		lastErr = s.runSherpa(ctx, tmpPath, candidate, rate)
+		if lastErr == nil {
+			return tmpPath, nil
+		}
+		if !isTokenIDFailure(lastErr) {
+			break
+		}
+	}
+	os.Remove(tmpPath)
+	return "", lastErr
+}
+
+func (s *Server) runSherpa(ctx context.Context, outputPath string, text string, rate float64) error {
 	args := []string{
 		"--vits-model=" + s.cfg.Sherpa.VitsModel,
 		"--vits-lexicon=" + s.cfg.Sherpa.VitsLexicon,
@@ -529,32 +558,31 @@ func (s *Server) synthesize(ctx context.Context, text string, rate float64) (str
 		"--vits-noise-scale=0.667",
 		"--vits-noise-scale-w=0.8",
 		"--vits-length-scale=" + fmt.Sprintf("%.3f", 1/clampRate(rate)),
-		"--output-filename=" + tmpPath,
+		"--output-filename=" + outputPath,
 	}
 	if fsts := existingRuleFsts(s.cfg.Sherpa.VitsRuleFsts); fsts != "" {
 		args = append(args, "--tts-rule-fsts="+fsts)
 	}
-	args = append(args, preprocessFanchenText(text, rate))
+	args = append(args, text)
 	cmd := exec.CommandContext(ctx, s.cfg.Sherpa.Bin, args...)
 	cmd.Dir = s.root
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	s.setCurrent(cmd)
-	err = cmd.Run()
+	err := cmd.Run()
 	s.clearCurrent(cmd)
-	if err != nil {
-		os.Remove(tmpPath)
-		detail := strings.TrimSpace(output.String())
-		if len(detail) > 1200 {
-			detail = detail[:1200]
-		}
-		if detail != "" {
-			return "", fmt.Errorf("sherpa-onnx failed: %w: %s", err, detail)
-		}
-		return "", fmt.Errorf("sherpa-onnx failed: %w", err)
+	if err == nil {
+		return nil
 	}
-	return tmpPath, nil
+	detail := strings.TrimSpace(output.String())
+	if len(detail) > 1200 {
+		detail = detail[:1200]
+	}
+	if detail != "" {
+		return fmt.Errorf("sherpa-onnx failed: %w: %s", err, detail)
+	}
+	return fmt.Errorf("sherpa-onnx failed: %w", err)
 }
 
 func (s *Server) play(ctx context.Context, wav string) error {
@@ -596,6 +624,7 @@ func stopWavPlayback() {
 }
 
 func preprocessFanchenText(text string, rate float64) string {
+	text = normalizeTocIndexText(text)
 	text = strings.NewReplacer(
 		"　", " ",
 		"℃", "摄氏度",
@@ -652,6 +681,67 @@ func preprocessFanchenText(text string, rate float64) string {
 	return normalizeTtsPunctuationSpacing(text, rate)
 }
 
+func normalizeTocIndexText(text string) string {
+	text = wordTocFieldRE.ReplaceAllString(text, " ")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return text
+	}
+	if purePageNumberRE.MatchString(text) {
+		return "第 " + pageRangeText(text) + " 页"
+	}
+	if match := tocLeaderPageRE.FindStringSubmatchIndex(text); match != nil {
+		page := strings.TrimSpace(text[match[2]:match[3]])
+		prefix := strings.TrimSpace(text[:match[0]])
+		if prefix == "" {
+			return "第 " + pageRangeText(page) + " 页"
+		}
+		return prefix + " 第 " + pageRangeText(page) + " 页"
+	}
+	return text
+}
+
+func pageRangeText(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.NewReplacer("-", " 到 ", "–", " 到 ", "—", " 到 ").Replace(text)
+	return text
+}
+
+func ttsTextCandidates(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return []string{"空白内容"}
+	}
+	candidates := []string{text}
+	if shortCJKText(text) {
+		contextual := "第 " + text + " 项"
+		if contextual != text {
+			candidates = append(candidates, contextual)
+		}
+	}
+	return candidates
+}
+
+func shortCJKText(text string) bool {
+	var cjk, other int
+	for _, r := range text {
+		if unicode.IsSpace(r) || isPairedBoundaryPunctuation(r) {
+			continue
+		}
+		if r >= 0x4E00 && r <= 0x9FFF {
+			cjk++
+		} else {
+			other++
+		}
+	}
+	return cjk > 0 && cjk <= 2 && other == 0
+}
+
+func isTokenIDFailure(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "Failed to convert") || strings.Contains(msg, "token IDs")
+}
+
 func sanitizeTtsRunes(text string) string {
 	var out []rune
 	for _, r := range text {
@@ -699,6 +789,15 @@ func normalizeTtsPunctuationSpacing(text string, rate float64) string {
 func isSemanticPausePunctuation(r rune) bool {
 	switch r {
 	case '，', ',', '、', '。', '；', ';', '：', ':', '！', '!', '？', '?':
+		return true
+	default:
+		return false
+	}
+}
+
+func isPairedBoundaryPunctuation(r rune) bool {
+	switch r {
+	case '“', '”', '‘', '’', '"', '\'', '《', '》', '〈', '〉', '（', '）', '(', ')', '【', '】', '[', ']', '「', '」', '『', '』':
 		return true
 	default:
 		return false
@@ -992,6 +1091,20 @@ func compactErrorDetail(text string) string {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
+	}
+	var useful []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "parse-options.cc:Read") {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.Contains(line, "Failed to convert") || strings.Contains(line, "Error in generating") || strings.Contains(lower, "failed") || strings.Contains(lower, "error") {
+			useful = append(useful, line)
+		}
+	}
+	if len(useful) > 0 {
+		text = strings.Join(useful, "；")
 	}
 	if len([]rune(text)) > 180 {
 		return string([]rune(text)[:180]) + "..."

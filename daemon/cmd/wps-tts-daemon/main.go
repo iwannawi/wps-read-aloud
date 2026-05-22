@@ -911,13 +911,25 @@ func (s *Server) synthesizeSpeech(ctx context.Context, group *processGroup, req 
 	case "sherpa-onnx":
 		req.Rate = clampRate(req.Rate)
 		req.Text = preprocessFanchenText(req.Text, req.Rate)
-		return s.runSherpaVits(ctx, group, req)
+		var lastErr error
+		for _, candidate := range ttsTextCandidates(req.Text) {
+			req.Text = candidate
+			wavPath, err := s.runSherpaVits(ctx, group, req)
+			if err == nil {
+				return wavPath, nil
+			}
+			lastErr = err
+		}
+		return "", lastErr
 	default:
 		return "", errors.New("no available tts engine")
 	}
 }
 
 var asciiTokenRE = regexp.MustCompile(`[A-Za-z0-9]+(?:[._+\-][A-Za-z0-9]+)*`)
+var tocLeaderPageRE = regexp.MustCompile(`[.·•…⋯・．\s]{2,}([0-9]+(?:[-–—][0-9]+)?)\s*$`)
+var purePageNumberRE = regexp.MustCompile(`^\s*[0-9]+(?:[-–—][0-9]+)?\s*$`)
+var wordTocFieldRE = regexp.MustCompile(`(?i)\bTOC\b(?:\s+\\[A-Za-z]+(?:\s+"[^"]*")?)*`)
 
 func (s *Server) runSherpaVits(ctx context.Context, group *processGroup, req SpeakRequest) (string, error) {
 	tmp, err := os.CreateTemp("", "wps-read-aloud-*.wav")
@@ -1225,6 +1237,7 @@ func saveAudioProbe(result audioProbeResult) error {
 }
 
 func preprocessFanchenText(text string, rate float64) string {
+	text = normalizeTocIndexText(text)
 	replacer := strings.NewReplacer(
 		"　", " ",
 		"℃", "摄氏度",
@@ -1280,6 +1293,62 @@ func preprocessFanchenText(text string, rate float64) string {
 	).Replace(text)
 	text = sanitizeTtsRunes(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
+}
+
+func normalizeTocIndexText(text string) string {
+	text = wordTocFieldRE.ReplaceAllString(text, " ")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return text
+	}
+	if purePageNumberRE.MatchString(text) {
+		return "第 " + pageRangeText(text) + " 页"
+	}
+	if match := tocLeaderPageRE.FindStringSubmatchIndex(text); match != nil {
+		page := strings.TrimSpace(text[match[2]:match[3]])
+		prefix := strings.TrimSpace(text[:match[0]])
+		if prefix == "" {
+			return "第 " + pageRangeText(page) + " 页"
+		}
+		return prefix + " 第 " + pageRangeText(page) + " 页"
+	}
+	return text
+}
+
+func pageRangeText(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.NewReplacer("-", " 到 ", "–", " 到 ", "—", " 到 ").Replace(text)
+	return text
+}
+
+func ttsTextCandidates(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return []string{"空白内容"}
+	}
+	candidates := []string{text}
+	if shortCJKText(text) {
+		contextual := "第 " + text + " 项"
+		if contextual != text {
+			candidates = append(candidates, contextual)
+		}
+	}
+	return candidates
+}
+
+func shortCJKText(text string) bool {
+	var cjk, other int
+	for _, r := range text {
+		if unicode.IsSpace(r) || isPairedBoundaryPunctuation(r) {
+			continue
+		}
+		if r >= 0x4E00 && r <= 0x9FFF {
+			cjk++
+		} else {
+			other++
+		}
+	}
+	return cjk > 0 && cjk <= 2 && other == 0
 }
 
 func sanitizeTtsRunes(text string) string {

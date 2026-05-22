@@ -1,5 +1,5 @@
 Package: wps-read-aloud-comate
-Version: 1.1.6
+Version: 1.1.7
 Section: utils
 Priority: optional
 Architecture: arm64

@@ -14,6 +14,32 @@ func TestWindowsPreprocessSpeaksAsciiAndMathSymbols(t *testing.T) {
 	}
 }
 
+func TestWindowsPreprocessHandlesTocPageEntries(t *testing.T) {
+	cases := map[string][]string{
+		"1": {"第", "一", "页"},
+		"···················· 4":  {"第", "四", "页"},
+		"第一章  总则\t............ 1": {"第一章", "总则", "第", "一", "页"},
+	}
+	for input, wants := range cases {
+		got := preprocessFanchenText(input, 1.2)
+		if strings.Contains(got, "·") || strings.Contains(got, "....") {
+			t.Fatalf("preprocessed TOC text = %q, still contains leader dots", got)
+		}
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Fatalf("preprocessed TOC text = %q, missing %q", got, want)
+			}
+		}
+	}
+}
+
+func TestWindowsTtsTextCandidatesAddContextForShortCJK(t *testing.T) {
+	got := ttsTextCandidates("目录")
+	if len(got) < 2 || got[1] != "第 目录 项" {
+		t.Fatalf("ttsTextCandidates for short CJK = %#v, want contextual retry", got)
+	}
+}
+
 func TestWindowsPrefetchCountUsesDynamicTextWindow(t *testing.T) {
 	ss := &Session{sentences: []ReadSentence{
 		{Text: strings.Repeat("一", 101)},
