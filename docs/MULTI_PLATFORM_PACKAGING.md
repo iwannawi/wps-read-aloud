@@ -8,11 +8,11 @@
 
 | 目标 | 安装包 | 安装路径 | 启动方式 |
 | --- | --- | --- | --- |
-| x86/x64 Windows 10/11 | wps-read-aloud-comate_1.1.12_windows.exe | 用户选择的程序目录 | 当前用户登录自启动 |
-| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.12_amd64.deb | /opt/wps-read-aloud-comate | systemd |
-| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.12_arm64.deb | /opt/wps-read-aloud-comate | systemd |
-| x64 UOS V20 | cn.wps-read-aloud-comate_1.1.12_amd64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
-| ARM64 UOS V20 | cn.wps-read-aloud-comate_1.1.12_arm64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
+| x86/x64 Windows 10/11 | wps-read-aloud-comate_1.1.13_windows.exe | 用户选择的程序目录 | 按需启动，不写入开机或登录自启动 |
+| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.13_amd64.deb | /opt/wps-read-aloud-comate | systemd |
+| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.13_arm64.deb | /opt/wps-read-aloud-comate | systemd |
+| x64 UOS V20 | cn.wps-read-aloud-comate_1.1.13_amd64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
+| ARM64 UOS V20 | cn.wps-read-aloud-comate_1.1.13_arm64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
 
 ## 共用内容
 
@@ -26,13 +26,15 @@
 
 | 目标 | 差异点 |
 | --- | --- |
-| x86/x64 Windows 10/11 | Windows daemon、Windows Sherpa-onnx、图形安装器、当前用户 Run 自启动、WinMM 播放、WPS 原生第三方加载项许可确认。 |
+| x86/x64 Windows 10/11 | Windows daemon、Windows Sherpa-onnx、图形安装器、本地加载项注册、按需启动、WinMM 播放、开始菜单和控制面板卸载入口、WPS 原生第三方加载项许可确认。 |
 | x64 银河麒麟 V10 及以上 | x64 Linux daemon、x64 Linux Sherpa-onnx、Debian 控制脚本、systemd、Linux 桌面音频播放器探测。 |
 | ARM64 银河麒麟 V10 及以上 | ARM64 Linux daemon、ARM64 Linux Sherpa-onnx、Debian 控制脚本、systemd、Linux 桌面音频播放器探测。 |
 | x64 UOS V20 | x64 Linux daemon、x64 Linux Sherpa-onnx、UOS 应用目录、cn. 包名、systemd、Linux 桌面音频播放器探测。 |
 | ARM64 UOS V20 | ARM64 Linux daemon、ARM64 Linux Sherpa-onnx、UOS 应用目录、cn. 包名、systemd、Linux 桌面音频播放器探测。 |
 
-Windows 加载项通过 127.0.0.1 调用独立服务，不向 WPS 进程注入 DLL。同一套 Windows 服务可服务 32 位和 64 位 WPS，安装日志仍会记录 WPS 位数。Windows WPS 可能显示原生第三方加载项许可确认框，该确认框由 WPS 客户端安全策略生成，安装包只能保留已允许记录，不能合规绕过。
+Windows 加载项通过 127.0.0.1 调用独立服务，不向 WPS 进程注入 DLL。同一套 Windows 服务可服务 32 位和 64 位 WPS，安装日志仍会记录 WPS 位数。Windows WPS 顶部选项卡由本地加载项文件提供，朗读服务仅在点击“开始朗读”或“状态检查”等功能时按需启动，停止朗读、朗读完成或状态检查结束后退出。Windows WPS 可能显示原生第三方加载项许可确认框，该确认框由 WPS 客户端安全策略生成，安装包只能保留已允许记录，不能合规绕过。
+
+Windows 安装包必须注册开始菜单卸载入口和当前用户“应用和功能”卸载信息。卸载时必须清理安装目录、WPS 加载项注册、授权缓存、本项目开始菜单入口、卸载注册表、旧版 Run 自启动项和旧计划任务。
 
 Linux 安装包使用 systemd 管理服务，音频播放依赖当前桌面环境可用的 pw-play、paplay 或 aplay。银河麒麟包和 UOS 包的安装路径与包名不同，不能混用打包规范。
 

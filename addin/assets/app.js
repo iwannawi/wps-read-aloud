@@ -1,10 +1,10 @@
 (function () {
   "use strict";
 
-  var SERVICE_ORIGIN = "http://127.0.0.1:19860";
-  var SERVICE_BASE = (window.location && window.location.protocol.indexOf("http") === 0)
-    ? ""
-    : SERVICE_ORIGIN;
+  var RUNTIME = window.WPS_READ_ALOUD_RUNTIME || {};
+  var SERVICE_ORIGIN = String(RUNTIME.serviceOrigin || "http://127.0.0.1:19860").replace(/\/+$/, "");
+  var SERVICE_BASE = SERVICE_ORIGIN;
+  var IS_WINDOWS_ON_DEMAND = String(RUNTIME.platform || "").toLowerCase() === "windows";
   var MAX_SENTENCES = 20000;
   var MAX_SENTENCE_LENGTH = 1000;
   var SENTENCE_END = /[。！？!?；;]+|[\r\n]+/g;
@@ -38,7 +38,7 @@
 
   function showDialog(options) {
     var payload = encodeURIComponent(toBase64(JSON.stringify(options || {})));
-    var url = SERVICE_ORIGIN + "/dialog.html?payload=" + payload;
+    var url = dialogPageUrl() + "?payload=" + payload;
     var title = options && options.title ? options.title : "文档朗读";
     var width = options && options.width ? Number(options.width) : 880;
     var height = options && options.height ? Number(options.height) : 680;
@@ -86,6 +86,7 @@
       startup: true,
       modal: true,
       startupId: startupDialogId,
+      serviceOrigin: SERVICE_ORIGIN,
       width: 500,
       height: 170,
       message: message || "朗读服务正在启动，请耐心等待..."
@@ -95,6 +96,33 @@
 
   function toBase64(text) {
     return btoa(unescape(encodeURIComponent(text)));
+  }
+
+  function isLocalAddinPage() {
+    try {
+      var protocol = window.location && window.location.protocol ? window.location.protocol.toLowerCase() : "";
+      return protocol === "file:" || protocol === "ksolaunch:";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function makeAbsoluteUrl(path) {
+    try {
+      return new URL(path, window.location.href).href;
+    } catch (_) {
+      return path;
+    }
+  }
+
+  function dialogPageUrl() {
+    if (RUNTIME.dialogUrl) {
+      return String(RUNTIME.dialogUrl);
+    }
+    if (isLocalAddinPage()) {
+      return makeAbsoluteUrl("dialog.html");
+    }
+    return SERVICE_ORIGIN + "/dialog.html";
   }
 
   function dialogFallback(options) {
@@ -166,7 +194,9 @@
       // Keep the original message below.
     }
     if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(raw)) {
-      return "本地朗读服务未连接，请确认安装已完成并重启 WPS。";
+      return IS_WINDOWS_ON_DEMAND
+        ? "本地朗读服务未能按需启动。请确认安装目录完整，或重新安装 Windows 安装包。"
+        : "本地朗读服务未连接，请确认安装已完成并重启 WPS。";
     }
     if (/AbortError|aborted|timeout/i.test(raw)) {
       return "朗读合成超时，请缩短选区或稍后重试。";
@@ -628,6 +658,100 @@
     return data;
   }
 
+  async function ensureServiceAvailable() {
+    if (await serviceHealthy(1200)) {
+      return;
+    }
+    if (!IS_WINDOWS_ON_DEMAND) {
+      throw new Error("本地朗读服务未连接，请确认安装已完成并重启 WPS。");
+    }
+    launchWindowsDaemon();
+    var deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      if (await serviceHealthy(1800)) {
+        return;
+      }
+      await sleep(500);
+    }
+    throw new Error("本地朗读服务启动超时。请确认安装包完整，或重新运行安装程序修复。");
+  }
+
+  async function serviceHealthy(timeoutMs) {
+    try {
+      var controller = null;
+      var timer = null;
+      var options = { cache: "no-store" };
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        options.signal = controller.signal;
+        timer = setTimeout(function () {
+          try { controller.abort(); } catch (_) {}
+        }, timeoutMs || 1500);
+      }
+      var response = await fetch(SERVICE_ORIGIN + "/health", options);
+      if (timer) {
+        clearTimeout(timer);
+      }
+      return response && response.ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function launchWindowsDaemon() {
+    var launcher = RUNTIME.launcherPath || "";
+    var daemon = RUNTIME.daemonExe || "";
+    var root = RUNTIME.installRoot || "";
+    if (launcher) {
+      if (shellExecute("powershell.exe", '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + launcher + '"', root)) {
+        return;
+      }
+    }
+    if (daemon) {
+      var args = RUNTIME.configPath ? '-config "' + RUNTIME.configPath + '"' : "";
+      if (shellExecute(daemon, args, root)) {
+        return;
+      }
+    }
+    throw new Error("WPS 未允许启动本地朗读服务。请确认安装完整，或从开始菜单重新运行安装程序修复。");
+  }
+
+  function shellExecute(file, args, directory) {
+    var attempts = [
+      function () {
+        return window.wps && window.wps.OAAssist && window.wps.OAAssist.ShellExecute(file, args || "", directory || "", "open", 0);
+      },
+      function () {
+        var app = getWpsApplication();
+        return app && app.OAAssist && app.OAAssist.ShellExecute(file, args || "", directory || "", "open", 0);
+      },
+      function () {
+        return window.Application && window.Application.OAAssist && window.Application.OAAssist.ShellExecute(file, args || "", directory || "", "open", 0);
+      },
+      function () {
+        return window.Application && typeof window.Application.ShellExecute === "function" && window.Application.ShellExecute(file, args || "", directory || "", "open", 0);
+      },
+      function () {
+        if (typeof ActiveXObject === "undefined") {
+          return false;
+        }
+        var shell = new ActiveXObject("WScript.Shell");
+        var command = '"' + file + '"' + (args ? " " + args : "");
+        shell.Run(command, 0, false);
+        return true;
+      }
+    ];
+    for (var i = 0; i < attempts.length; i += 1) {
+      try {
+        var result = attempts[i]();
+        if (result !== false) {
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
+  }
+
   async function parseJsonResponse(response, path) {
     var text = await response.text();
     if (!text) {
@@ -674,6 +798,8 @@
     status("朗读服务正在启动。");
 
     try {
+      startupPopup = showStartupDialog(startupMessage);
+      await ensureServiceAvailable();
       await request("/read/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -685,7 +811,6 @@
           prefetch: 0
         })
       });
-      startupPopup = showStartupDialog(startupMessage);
       await pollReadStatus(token, segments, startupPopup);
     } catch (error) {
       if (token === playbackToken) {
@@ -695,6 +820,9 @@
       closeStartupDialog();
       if (token === playbackToken) {
         setReadingState(false);
+      }
+      if (IS_WINDOWS_ON_DEMAND) {
+        shutdownWindowsService();
       }
     }
   }
@@ -762,6 +890,9 @@
     setReadingState(false);
     lastSelectedIndex = -1;
     postControl("/read/stop");
+    if (IS_WINDOWS_ON_DEMAND) {
+      shutdownWindowsService();
+    }
     if (!silent) {
       status("已停止朗读。");
     }
@@ -773,6 +904,10 @@
     } catch (error) {
       status(userMessage(error));
     }
+  }
+
+  function shutdownWindowsService() {
+    fetch(SERVICE_ORIGIN + "/shutdown", { method: "POST", cache: "no-store" }).catch(function () {});
   }
 
   function rateIdForValue(value) {
@@ -899,6 +1034,7 @@
 
   async function onCheckStatus() {
     try {
+      await ensureServiceAvailable();
       var health = await request("/health");
       if (!health.version) {
         notify("本地朗读服务版本较旧或尚未重启。请重新安装最新安装包，或重启朗读服务后再打开 WPS。", "服务状态", "warning");
@@ -956,6 +1092,10 @@
       }
     } catch (error) {
       notify(userMessage(error), "服务状态", "error");
+    } finally {
+      if (IS_WINDOWS_ON_DEMAND) {
+        shutdownWindowsService();
+      }
     }
   }
 
@@ -968,7 +1108,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.1.12" },
+        { label: "版本", value: "1.1.13" },
         { label: "发布日期", value: "20260523" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
@@ -979,10 +1119,17 @@
         { label: "开源组件", value: "本软件包含第三方开源组件，相关版权和许可见第三方声明。" }
       ],
       links: [
-        { label: "发布说明", url: SERVICE_ORIGIN + "/docs/RELEASE_NOTES.md" },
-        { label: "第三方声明", url: SERVICE_ORIGIN + "/docs/THIRD_PARTY_NOTICES.md" }
+        { label: "发布说明", url: docUrl("RELEASE_NOTES.md") },
+        { label: "第三方声明", url: docUrl("THIRD_PARTY_NOTICES.md") }
       ]
     });
+  }
+
+  function docUrl(name) {
+    if (RUNTIME.docsBaseUrl) {
+      return String(RUNTIME.docsBaseUrl).replace(/\/+$/, "") + "/" + name;
+    }
+    return SERVICE_ORIGIN + "/docs/" + name;
   }
 
   function onStartSpeak() {

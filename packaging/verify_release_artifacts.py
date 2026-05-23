@@ -145,6 +145,7 @@ def check_windows_package(target: dict, artifact: Path) -> None:
             "install-ui.ps1",
             "uninstall.ps1",
             "app/addin/assets/app.js",
+            "app/addin/assets/runtime-config.js",
             "app/config.yaml",
             "app/daemon/wps-tts-daemon.exe",
             "app/engines/sherpa-onnx/sherpa-onnx-offline-tts.exe",
@@ -155,6 +156,16 @@ def check_windows_package(target: dict, artifact: Path) -> None:
         if missing:
             fail(f"missing Windows payload file in {artifact.name}: {missing[0]}")
         version = json.loads(zf.read("app/version.json").decode("utf-8"))
+        install_script = zf.read("install.ps1").decode("utf-8-sig")
+        uninstall_script = zf.read("uninstall.ps1").decode("utf-8-sig")
+        if "Register-DaemonStartup" in install_script:
+            fail(f"Windows installer still contains startup registration function: {artifact.name}")
+        if "Wait-LocalServiceHealthy" in install_script:
+            fail(f"Windows installer still waits for a daemon started during install: {artifact.name}")
+        if "Set-WpsPluginEntry -Path $PublishXml -Entry" in install_script:
+            fail(f"Windows installer still registers online publish entry: {artifact.name}")
+        if "WPSReadAloudComate" not in uninstall_script or "Uninstall" not in install_script:
+            fail(f"Windows uninstall integration is incomplete: {artifact.name}")
     if version.get("system") != "windows" or version.get("architecture") != "x86":
         fail(f"wrong version.json platform in {artifact.name}")
     if any(name.endswith(".service") or name.startswith("lib/systemd/") for name in names):

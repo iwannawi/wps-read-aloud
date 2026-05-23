@@ -23,11 +23,13 @@
 ## Windows 安装
 
 - 默认安装目录使用 %LOCALAPPDATA%\Programs\WPS Read Aloud Comate，不写入 C:\Program Files。
-- 使用 HKCU\Software\Microsoft\Windows\CurrentVersion\Run 注册当前用户自启动，不依赖计划任务。
+- Windows 版本不写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run，不创建计划任务，不在安装后启动 daemon。
 - 旧版计划任务只做清理兼容。RunLevel 只允许 Limited 或 Highest，不使用 LeastPrivilege。
-- 安装阶段直接 Start-Process 启动 daemon；登录自启动再使用 start-daemon.ps1。
+- 安装阶段只生成 start-daemon.ps1，供 WPS 加载项按需启动服务。
 - 安装前必须停止当前安装目录下正在运行的旧版 wps-tts-daemon.exe。
-- 安装期健康检查等待 60 秒，避免低性能机器或首次杀毒扫描导致误判。
+- 安装期不做本地服务健康检查，避免为了检查而启动后台进程。
+- Windows 安装包必须写入开始菜单卸载入口和当前用户“应用和功能”卸载注册表。
+- Windows 卸载脚本必须停止本项目 daemon，清理旧版 Run 自启动项、旧计划任务、WPS 加载项注册、授权缓存、开始菜单入口、卸载注册表和安装目录。
 - 安装器应构建为 Windows GUI 子系统程序，正常安装不弹命令行窗口。
 - Go 安装器启动 WinForms 界面时不要隐藏窗体。应隐藏控制台，保留安装界面。
 
@@ -36,8 +38,8 @@
 - 安装脚本不得覆盖整个 WPS 加载项配置文件，只增删本项目条目。
 - 注册名称使用中文“文档朗读助手”。
 - 授权描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”。
-- Windows WPS 端只写 publish.xml 的单个 jspluginonline 入口，不再同时写 jsplugins.xml。
-- Windows WPS 2023 当前依赖 publish.xml online 入口显示选项卡；重复写 online 和 local 会造成连续授权弹窗。
+- Windows WPS 端优先写 jsplugins.xml 本地入口，避免为了显示选项卡而要求 daemon 常驻。
+- 不再写 publish.xml online 入口；旧 publish.xml 内本项目条目只清理，不新增。
 - Windows WPS 对 127.0.0.1 online 入口可能生成一次原生安全确认，项目侧只能避免重复注册，不能伪造或关闭 WPS 安全确认。
 - 升级时不要清理已允许的 authaddin.json 授权缓存；应保留并刷新本项目条目，避免每次升级后重复弹出许可确认。
 - 只清理本项目相关的阻止缓存和重复 publish/jsplugins 条目；不处理其他加载项的授权信息。
@@ -56,7 +58,7 @@
 
 ## 前端与弹窗
 
-- WPS ShowDialog 使用 http://127.0.0.1:19860/dialog.html 的绝对地址。
+- Linux WPS ShowDialog 使用 http://127.0.0.1:19860/dialog.html 的绝对地址。Windows 本地加载项使用本地 dialog.html，避免为了弹窗启动本地服务。
 - ShowDialog 失败后不要在 WPS 环境回退到 window.open，避免调起外部浏览器。
 - 启动小窗如出现滚动条，需要同时检查 html.compact 和 body.compact 的最小尺寸。
 - 部分 WPS 内置浏览器不支持 URLSearchParams，弹窗参数解析应使用兼容实现。

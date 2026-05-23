@@ -1,0 +1,1 @@
+window.WPS_READ_ALOUD_RUNTIME = window.WPS_READ_ALOUD_RUNTIME || {};

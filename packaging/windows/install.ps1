@@ -461,41 +461,96 @@ if (!`$Healthy) {
   return $Launcher
 }
 
-function Register-DaemonStartup {
-  param([string]$Launcher)
+function ConvertTo-FileUri {
+  param([string]$Path)
+  return ([System.Uri]([System.IO.Path]::GetFullPath($Path))).AbsoluteUri
+}
 
-  $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-  New-Item -Path $RunKey -Force | Out-Null
+function Write-WindowsRuntimeConfig {
+  param(
+    [string]$Path,
+    [string]$Root,
+    [string]$Launcher,
+    [string]$Daemon,
+    [string]$Config
+  )
+  $Docs = ConvertTo-FileUri -Path $Root
+  $Payload = [ordered]@{
+    platform = "windows"
+    serviceOrigin = "http://127.0.0.1:19860"
+    installRoot = $Root
+    launcherPath = $Launcher
+    daemonExe = $Daemon
+    configPath = $Config
+    docsBaseUrl = $Docs.TrimEnd("/") + "/"
+  } | ConvertTo-Json -Depth 5 -Compress
+  $Content = "window.WPS_READ_ALOUD_RUNTIME = $Payload;`r`n"
+  Set-Content -Path $Path -Value $Content -Encoding UTF8
+}
+
+function Remove-OldStartupEntries {
+  Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WPSReadAloudComate" -ErrorAction SilentlyContinue
+  try {
+    Stop-ScheduledTask -TaskName "WPSReadAloudComate" -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName "WPSReadAloudComate" -Confirm:$false -ErrorAction SilentlyContinue
+  }
+  catch {
+    Write-Host "旧版计划任务清理被系统拒绝，已跳过。"
+  }
+}
+
+function New-UninstallShortcut {
+  param([string]$Root)
+  $ShortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS 文档朗读助手"
+  New-Item -ItemType Directory -Force -Path $ShortcutDir | Out-Null
+  $ShortcutPath = Join-Path $ShortcutDir "卸载 WPS 文档朗读助手.lnk"
   $PowerShell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
   if (!(Test-Path $PowerShell)) {
     $PowerShell = "powershell.exe"
   }
-  $Command = "`"$PowerShell`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Launcher`""
-  Set-ItemProperty -Path $RunKey -Name "WPSReadAloudComate" -Value $Command
-  return $PowerShell
+  $Shell = New-Object -ComObject WScript.Shell
+  $Shortcut = $Shell.CreateShortcut($ShortcutPath)
+  $Shortcut.TargetPath = $PowerShell
+  $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Root\uninstall.ps1`""
+  $Shortcut.WorkingDirectory = $Root
+  $IconPath = Join-Path $Root "installer-assets\app.ico"
+  if (Test-Path $IconPath) {
+    $Shortcut.IconLocation = $IconPath
+  }
+  $Shortcut.Save()
 }
 
-function Test-LocalServiceHealthy {
+function Register-UninstallEntry {
+  param(
+    [string]$Root,
+    [object]$VersionInfo
+  )
+  $Key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WPSReadAloudComate"
+  New-Item -Path $Key -Force | Out-Null
+  $PowerShell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+  if (!(Test-Path $PowerShell)) {
+    $PowerShell = "powershell.exe"
+  }
+  $UninstallScript = Join-Path $Root "uninstall.ps1"
+  $DisplayIcon = Join-Path $Root "installer-assets\app.ico"
+  if (!(Test-Path $DisplayIcon)) {
+    $DisplayIcon = Join-Path $Root "daemon\wps-tts-daemon.exe"
+  }
+  Set-ItemProperty -Path $Key -Name "DisplayName" -Value "WPS 文档朗读助手"
+  Set-ItemProperty -Path $Key -Name "DisplayVersion" -Value ([string]$VersionInfo.version)
+  Set-ItemProperty -Path $Key -Name "Publisher" -Value "Zhang Jingyao"
+  Set-ItemProperty -Path $Key -Name "InstallLocation" -Value $Root
+  Set-ItemProperty -Path $Key -Name "DisplayIcon" -Value $DisplayIcon
+  Set-ItemProperty -Path $Key -Name "UninstallString" -Value "`"$PowerShell`" -NoProfile -ExecutionPolicy Bypass -File `"$UninstallScript`""
+  Set-ItemProperty -Path $Key -Name "QuietUninstallString" -Value "`"$PowerShell`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$UninstallScript`" -Silent"
+  Set-ItemProperty -Path $Key -Name "NoModify" -Type DWord -Value 1
+  Set-ItemProperty -Path $Key -Name "NoRepair" -Type DWord -Value 1
   try {
-    $Response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:19860/health" -TimeoutSec 2
-    return ($Response.StatusCode -ge 200 -and $Response.StatusCode -lt 500)
+    $SizeKb = [int]((Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1KB)
+    Set-ItemProperty -Path $Key -Name "EstimatedSize" -Type DWord -Value $SizeKb
   }
   catch {
-    return $false
   }
-}
-
-function Wait-LocalServiceHealthy {
-  param([int]$TimeoutSeconds = 15)
-
-  $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-  while ((Get-Date) -lt $Deadline) {
-    if (Test-LocalServiceHealthy) {
-      return $true
-    }
-    Start-Sleep -Milliseconds 500
-  }
-  return $false
 }
 
 try {
@@ -516,18 +571,17 @@ try {
   Write-Host "本安装包使用独立本地朗读服务，不注入 WPS 进程，可同时支持 32 位和 64 位 WPS。"
 
   Write-InstallProgress -Percent 20 -Action "清理旧版本" -Detail "正在停止旧版朗读服务"
-  $TaskName = "WPSReadAloudComate"
-  try {
-    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-  }
-  catch {
-    Write-Host "旧版计划任务清理被系统拒绝，已跳过；新版安装使用当前用户 Run 自启动。"
-  }
+  Remove-OldStartupEntries
   Stop-InstalledDaemonProcess -Root $InstallDir
   Write-InstallProgress -Percent 35 -Action "复制程序文件" -Detail "安装路径：$InstallDir"
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   Copy-Item -Path (Join-Path $Source "*") -Destination $InstallDir -Recurse -Force
+  Copy-Item -LiteralPath (Join-Path $PSScriptRoot "uninstall.ps1") -Destination (Join-Path $InstallDir "uninstall.ps1") -Force
+  if (Test-Path (Join-Path $PSScriptRoot "installer-assets")) {
+    $InstallAssets = Join-Path $InstallDir "installer-assets"
+    Remove-Item -LiteralPath $InstallAssets -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item -Path (Join-Path $PSScriptRoot "installer-assets") -Destination $InstallAssets -Recurse -Force
+  }
 
   $Daemon = Join-Path $InstallDir "daemon\wps-tts-daemon.exe"
   if (!(Test-Path $Daemon)) {
@@ -535,15 +589,8 @@ try {
   }
 
   $Launcher = New-DaemonLauncher -Root $InstallDir -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
-  Write-InstallProgress -Percent 50 -Action "注册启动项" -Detail "正在写入当前用户自启动配置"
-  Register-DaemonStartup -Launcher $Launcher | Out-Null
-  Write-InstallProgress -Percent 58 -Action "启动朗读服务" -Detail "正在启动本机语音合成服务"
-  Start-Process -FilePath $Daemon -ArgumentList @("-config", (Join-Path $InstallDir "config.yaml")) -WorkingDirectory $InstallDir -WindowStyle Hidden
-  Write-Host "已注册当前用户登录自启动：HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WPSReadAloudComate"
-  if (!(Wait-LocalServiceHealthy -TimeoutSeconds 60)) {
-    throw "本地朗读服务未能启动，请查看安装目录中的 start-daemon.ps1 和安装日志。"
-  }
-  Write-Host "本地朗读服务已启动：http://127.0.0.1:19860/health"
+  Write-InstallProgress -Percent 55 -Action "配置按需启动" -Detail "朗读服务仅在使用朗读功能时启动"
+  Write-Host "已清理旧版自启动项。新版 Windows 包不会开机自启动朗读服务。"
 
   Write-InstallProgress -Percent 70 -Action "注册 WPS 加载项" -Detail "正在写入 WPS 加载项配置"
   $JsDir = Join-Path $env:APPDATA "Kingsoft\wps\jsaddons"
@@ -552,18 +599,26 @@ try {
   $Target = Join-Path $JsDir "wps-read-aloud_$AddinVersion"
   New-Item -ItemType Directory -Force -Path $Target | Out-Null
   Copy-Item -Path (Join-Path $InstallDir "addin\*") -Destination $Target -Recurse -Force
+  Write-WindowsRuntimeConfig -Path (Join-Path $Target "assets\runtime-config.js") -Root $InstallDir -Launcher $Launcher -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
+  Write-WindowsRuntimeConfig -Path (Join-Path $InstallDir "addin\assets\runtime-config.js") -Root $InstallDir -Launcher $Launcher -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
 
-  $LocalUrl = "http://127.0.0.1:19860/addin/"
+  $LocalIndexUrl = ConvertTo-FileUri -Path (Join-Path $Target "index.html")
+  $LocalRibbonUrl = ConvertTo-FileUri -Path (Join-Path $Target "ribbon.xml")
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
   $KnownNames = @($AddinInternalName, $AddinDisplayName, "WPS 文档朗读助手", "wps-read-aloud-comate", "wps-read-aloud-xc", "wps-read-aloud-zhangjingyao")
-  $OnlineEntry = @"
-<jspluginonline name="$AddinDisplayName" type="wps" enable="enable" install="$LocalUrl" url="$LocalUrl" desc="$AddinDescription"/>
+  $LocalEntry = @"
+<jsplugin name="$AddinDisplayName" type="wps" url="$LocalIndexUrl" version="$AddinVersion" desc="$AddinDescription">
+    <ribbon file="$LocalRibbonUrl"/>
+  </jsplugin>
 "@
-  Set-WpsPluginEntry -Path $PublishXml -Entry $OnlineEntry -Names $KnownNames
-  Remove-WpsPluginEntry -Path $PluginsXml -Names $KnownNames
-  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath "http://127.0.0.1:19860/addin"
+  Remove-WpsPluginEntry -Path $PublishXml -Names $KnownNames
+  Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry -Names $KnownNames
+  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath $LocalIndexUrl
   Clear-WpsJsAddinBlockHost -JsDir $JsDir
+  Write-InstallProgress -Percent 86 -Action "注册卸载入口" -Detail "正在写入开始菜单和控制面板卸载信息"
+  New-UninstallShortcut -Root $InstallDir
+  Register-UninstallEntry -Root $InstallDir -VersionInfo $VersionInfo
 
   Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请彻底退出并重新打开 WPS"
   Write-Host "WPS 文档朗读助手安装完成。若 WPS 已打开，请重启 WPS。"

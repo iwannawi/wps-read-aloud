@@ -59,6 +59,9 @@ type Server struct {
 	session  *Session
 	current  map[*exec.Cmd]bool
 	synthSem chan struct{}
+	httpSrv  *http.Server
+	lastUse  time.Time
+	stopOnce sync.Once
 }
 
 type Session struct {
@@ -116,6 +119,7 @@ func main() {
 	}
 	cfg = absolutizeConfig(root, cfg)
 	server := &Server{root: root, cfg: cfg, current: make(map[*exec.Cmd]bool), synthSem: make(chan struct{}, synthConcurrencyLimit)}
+	server.lastUse = time.Now()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.health)
 	mux.HandleFunc("/selftest", server.selftest)
@@ -123,11 +127,15 @@ func main() {
 	mux.HandleFunc("/read/status", server.readStatus)
 	mux.HandleFunc("/read/stop", server.stop)
 	mux.HandleFunc("/stop", server.stop)
+	mux.HandleFunc("/shutdown", server.shutdown)
 	mux.HandleFunc("/audio/probe", server.audioProbe)
 	mux.HandleFunc("/docs/", server.docs)
 	mux.HandleFunc("/", server.web)
+	httpSrv := &http.Server{Addr: cfg.Listen, Handler: cors(server.trackActivity(mux))}
+	server.httpSrv = httpSrv
+	go server.idleMonitor()
 	log.Printf("wps-tts-daemon-windows listening on http://%s", cfg.Listen)
-	if err := http.ListenAndServe(cfg.Listen, cors(mux)); err != nil {
+	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 }
@@ -305,6 +313,58 @@ func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
 	s.session = nil
 	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"status": "stopped"})
+}
+
+func (s *Server) shutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	s.mu.Lock()
+	s.stopLocked()
+	s.session = nil
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"status": "shutting_down"})
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		s.shutdownServer()
+	}()
+}
+
+func (s *Server) trackActivity(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.lastUse = time.Now()
+		s.mu.Unlock()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) idleMonitor() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.mu.Lock()
+		idleFor := time.Since(s.lastUse)
+		active := s.session != nil
+		s.mu.Unlock()
+		if !active && idleFor > 2*time.Minute {
+			log.Printf("idle timeout reached; shutting down Windows on-demand service")
+			s.shutdownServer()
+			return
+		}
+	}
+}
+
+func (s *Server) shutdownServer() {
+	s.stopOnce.Do(func() {
+		if s.httpSrv == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = s.httpSrv.Shutdown(ctx)
+	})
 }
 
 func (s *Server) web(w http.ResponseWriter, r *http.Request) {

@@ -108,6 +108,12 @@ try {
     }
   }
 
+  Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/shutdown" -Method POST -TimeoutSec 5 | Out-Null
+  $process.WaitForExit(8000) | Out-Null
+  if (!$process.HasExited) {
+    throw "Windows on-demand daemon did not exit after /shutdown."
+  }
+
   [pscustomobject]@{
     Ok = $true
     Version = $Version
@@ -117,6 +123,8 @@ try {
   } | ConvertTo-Json -Depth 4
 } finally {
   try { Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/stop" -Method POST -TimeoutSec 2 | Out-Null } catch {}
-  Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+  if (!$process.HasExited) {
+    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+  }
   Remove-Item -LiteralPath $cfg -ErrorAction SilentlyContinue
 }

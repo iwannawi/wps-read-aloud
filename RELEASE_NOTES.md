@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.12
+版本：1.1.13
 发布时间：20260523
 开发者：Zhang Jingyao
 
@@ -18,26 +18,27 @@
 
 ## 变更
 
-- README、验收测试、多平台打包说明、Debian 包说明、版本管理说明和发布脚本同步更新到当前 1.1.12 方案。
-- 文档重新区分“共通架构”和“平台差异”，明确 Windows、银河麒麟、UOS 在安装目录、服务启动、播放层、加载项注册、许可弹窗和日志位置上的差异。
-- README 的技术方案、朗读能力、安装验证和平台限制说明按现有实现重写，删除容易让人误解为右侧面板、音量调节、Piper/eSpeak 或双模型切换的旧描述。
-- 验收说明补充 Windows 原生第三方加载项许可确认框的验证要求，并说明该弹窗由 Windows 版 WPS 客户端安全策略控制。
+- Windows 安装包改为按需启动本地朗读服务，不再写入开机或登录自启动项，安装阶段也不再启动 wps-tts-daemon.exe。
+- Windows 加载项改为本地注册入口，点击“开始朗读”或“状态检查”时再启动本地服务；停止朗读、朗读结束或状态检查完成后会主动请求服务退出。
+- Windows 安装包新增开始菜单卸载入口，并写入控制面板“应用和功能”卸载信息。
+- Windows 卸载脚本重写为完整清理流程，覆盖朗读进程、旧版自启动项、旧计划任务、WPS 加载项注册、授权缓存、本项目开始菜单入口、卸载注册表和安装目录。
 
 ## 修复
 
-- 修复说明文档中对技术方案、朗读能力和跨平台差异描述不完整的问题。
-- 修复部分脚本和文档仍引用上一版本号的问题。
-- 修复文档中未充分说明 Windows 和 Linux 平台能力差异的问题。
+- 修复 Windows 包安装后长期驻留本地朗读服务的问题，避免未使用朗读功能时占用 CPU、内存和后台进程资源。
+- 修复旧版安装包可能遗留当前用户 Run 自启动项的问题。
+- 修复卸载后可能残留 WPS 加载项配置、开始菜单入口或卸载注册表项的问题。
+- 修复文档中仍把 Windows 服务描述为登录自启动的问题。
 
 ## 交付文件
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.12_windows.exe |
-| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.12_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.12_arm64.deb |
-| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.12_amd64.deb |
-| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.12_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.13_windows.exe |
+| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.13_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.13_arm64.deb |
+| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.13_amd64.deb |
+| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.13_arm64.deb |
 
 ## 已知限制
 

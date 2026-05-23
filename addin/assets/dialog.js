@@ -115,12 +115,13 @@
       window.close();
     };
     if (payload.startup) {
-      closeWhenPlaybackStarts(payload.startupId || "");
+      closeWhenPlaybackStarts(payload.startupId || "", payload.serviceOrigin || "");
     }
   }
 
-  function closeWhenPlaybackStarts(startupId) {
+  function closeWhenPlaybackStarts(startupId, serviceOrigin) {
     var openedAt = Date.now();
+    var statusUrl = (serviceOrigin || "").replace(/\/+$/, "") + "/read/status";
     setInterval(function () {
       try {
         if (startupId && localStorage.getItem("wpsReadAloudCloseStartup") === startupId) {
@@ -128,7 +129,7 @@
           return;
         }
       } catch (_) {}
-      fetch("/read/status", { cache: "no-store" })
+      fetch(statusUrl, { cache: "no-store" })
         .then(function (response) {
           return response.ok ? response.json() : null;
         })
