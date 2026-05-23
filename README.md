@@ -8,11 +8,11 @@
 
 | 目标 | CPU 架构 + 操作系统 | WPS 要求 | 安装包 |
 | --- | --- | --- | --- |
-| Windows | x86/x64 Windows 10/11 | WPS Office 2019 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.10_windows.exe |
-| 银河麒麟 | x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.10_amd64.deb |
-| 银河麒麟 | ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.10_arm64.deb |
-| UOS | x64 UOS V20 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.1.10_amd64.deb |
-| UOS | ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.1.10_arm64.deb |
+| Windows | x86/x64 Windows 10/11 | WPS Office 2019 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.11_windows.exe |
+| 银河麒麟 | x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.11_amd64.deb |
+| 银河麒麟 | ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.1.11_arm64.deb |
+| UOS | x64 UOS V20 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.1.11_amd64.deb |
+| UOS | ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.1.11_arm64.deb |
 
 通用要求：
 
@@ -43,6 +43,8 @@
 - 当前朗读语句会在 WPS 文档中同步选中，并尽量保持可见。
 - 默认语速为 1.2x，可选 0.75x、1x、1.2x、1.5x。
 - 英文和数字会转换为逐字符中文读法，避免中英文混排时被跳过。
+- 常见数学内容会按阅读习惯预处理，例如“10%”读作“百分之十”，“+、-、×、÷、≥”等符号读作对应中文名称。
+- 常见办公术语会做固定读法处理，例如“WPS”读作“达不溜屁挨思”，“Office”和“office”读作“凹斐思”。
 - 默认 1.2x 语速下，句内语义标点停顿约 400ms，句末停顿约 600ms；其他语速按比例调整。
 - 启动朗读时按句动态预处理，累计约 100 字即可开始播放，减少句间等待。
 
@@ -86,13 +88,15 @@
 
 | 目标 | 命令或操作 |
 | --- | --- |
-| x86/x64 Windows 10/11 | 运行 dist/wps-read-aloud-comate_1.1.10_windows.exe |
-| x64 银河麒麟 V10 及以上 | sudo dpkg -i dist/wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i dist/wps-read-aloud-comate_1.1.10_arm64.deb |
-| x64 UOS V20 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 UOS V20 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.1.10_arm64.deb |
+| x86/x64 Windows 10/11 | 运行 dist/wps-read-aloud-comate_1.1.11_windows.exe |
+| x64 银河麒麟 V10 及以上 | sudo dpkg -i dist/wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i dist/wps-read-aloud-comate_1.1.11_arm64.deb |
+| x64 UOS V20 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 UOS V20 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.1.11_arm64.deb |
 
 Windows 安装程序会检测 WPS 安装路径、版本和可执行文件位数。加载项通过本地服务工作，不注入 WPS 进程，因此同一套 Windows 本地服务可服务 32 位和 64 位 WPS。
+
+Windows WPS 首次信任第三方加载项时，可能显示 WPS 原生安全确认框。安装脚本会保留已允许记录，升级安装时不主动清除授权缓存。
 
 Linux 安装包会安装 systemd 服务、WPS 加载项注册脚本、说明文件、许可证文件和安装日志。安装后如 WPS 已打开，需要重启 WPS。
 

@@ -6,8 +6,8 @@ import (
 )
 
 func TestWindowsPreprocessSpeaksAsciiAndMathSymbols(t *testing.T) {
-	got := preprocessFanchenText("面积S=a*b+3/2，结果>=10%。", 1.2)
-	for _, want := range []string{"艾丝", "诶", "乘", "必", "加", "三", "除", "二", "大于等于", "一 零", "百分号"} {
+	got := preprocessFanchenText("面积S=a*b+3/2，结果>=10%，误差±0.5%，WPS Office。", 1.2)
+	for _, want := range []string{"艾丝", "诶", "乘", "必", "加", "三", "除", "二", "大于等于", "百分之十", "正负", "百分之零点五", "达不溜屁挨思", "凹斐思"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("preprocessed text = %q, missing %q", got, want)
 		}

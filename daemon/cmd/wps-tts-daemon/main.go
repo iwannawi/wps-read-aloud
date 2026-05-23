@@ -927,6 +927,8 @@ func (s *Server) synthesizeSpeech(ctx context.Context, group *processGroup, req 
 }
 
 var asciiTokenRE = regexp.MustCompile(`[A-Za-z0-9]+(?:[._+\-][A-Za-z0-9]+)*`)
+var percentValueRE = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*[%％]`)
+var specialEnglishTokenRE = regexp.MustCompile(`(?i)\b(WPS|Office)\b`)
 var tocLeaderPageRE = regexp.MustCompile(`[.·•…⋯・．\s]{2,}([0-9]+(?:[-–—][0-9]+)?)\s*$`)
 var purePageNumberRE = regexp.MustCompile(`^\s*[0-9]+(?:[-–—][0-9]+)?\s*$`)
 var wordTocFieldRE = regexp.MustCompile(`(?i)\bTOC\b(?:\s+\\[A-Za-z]+(?:\s+"[^"]*")?)*`)
@@ -1238,6 +1240,13 @@ func saveAudioProbe(result audioProbeResult) error {
 
 func preprocessFanchenText(text string, rate float64) string {
 	text = normalizeTocIndexText(text)
+	text = percentValueRE.ReplaceAllStringFunc(text, func(match string) string {
+		parts := percentValueRE.FindStringSubmatch(match)
+		if len(parts) < 2 {
+			return " 百分号 "
+		}
+		return " 百分之" + numberSpeech(parts[1]) + " "
+	})
 	replacer := strings.NewReplacer(
 		"　", " ",
 		"℃", "摄氏度",
@@ -1256,6 +1265,16 @@ func preprocessFanchenText(text string, rate float64) string {
 		"·", " ",
 	)
 	text = replacer.Replace(text)
+	text = specialEnglishTokenRE.ReplaceAllStringFunc(text, func(token string) string {
+		switch strings.ToLower(token) {
+		case "wps":
+			return " 达不溜屁挨思 "
+		case "office":
+			return " 凹斐思 "
+		default:
+			return token
+		}
+	})
 	text = asciiTokenRE.ReplaceAllStringFunc(text, func(token string) string {
 		parts := make([]string, 0, len(token))
 		for _, r := range token {
@@ -1290,9 +1309,161 @@ func preprocessFanchenText(text string, rate float64) string {
 		">", " 大于 ",
 		"%", " 百分号 ",
 		"％", " 百分号 ",
+		"±", " 正负 ",
+		"√", " 根号 ",
+		"∑", " 求和 ",
+		"∏", " 连乘 ",
+		"∞", " 无穷大 ",
+		"∫", " 积分 ",
+		"∂", " 偏导 ",
+		"∈", " 属于 ",
+		"∉", " 不属于 ",
+		"⊂", " 包含于 ",
+		"⊆", " 包含于或等于 ",
+		"∪", " 并集 ",
+		"∩", " 交集 ",
+		"∧", " 且 ",
+		"∨", " 或 ",
+		"¬", " 非 ",
+		"°", " 度 ",
+		"‰", " 千分号 ",
 	).Replace(text)
 	text = sanitizeTtsRunes(text)
 	return normalizeTtsPunctuationSpacing(text, rate)
+}
+
+func numberSpeech(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	parts := strings.SplitN(value, ".", 2)
+	integer := integerSpeech(parts[0])
+	if len(parts) == 1 {
+		return integer
+	}
+	var decimals []string
+	for _, r := range parts[1] {
+		if spoken := digitSpeech(r); spoken != "" {
+			decimals = append(decimals, spoken)
+		}
+	}
+	if len(decimals) == 0 {
+		return integer
+	}
+	return integer + "点" + strings.Join(decimals, "")
+}
+
+func integerSpeech(value string) string {
+	value = strings.TrimLeft(strings.TrimSpace(value), "0")
+	if value == "" {
+		return "零"
+	}
+	if len(value) > 12 {
+		var digits []string
+		for _, r := range value {
+			if spoken := digitSpeech(r); spoken != "" {
+				digits = append(digits, spoken)
+			}
+		}
+		return strings.Join(digits, "")
+	}
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		var digits []string
+		for _, r := range value {
+			if spoken := digitSpeech(r); spoken != "" {
+				digits = append(digits, spoken)
+			}
+		}
+		return strings.Join(digits, "")
+	}
+	return integerToChinese(n)
+}
+
+func integerToChinese(n int64) string {
+	digits := []string{"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
+	units := []string{"", "十", "百", "千"}
+	sectionUnits := []string{"", "万", "亿", "万亿"}
+	if n == 0 {
+		return "零"
+	}
+	var sections []int
+	for n > 0 {
+		sections = append(sections, int(n%10000))
+		n /= 10000
+	}
+	var out []string
+	needZero := false
+	for i := len(sections) - 1; i >= 0; i-- {
+		section := sections[i]
+		if section == 0 {
+			needZero = len(out) > 0
+			continue
+		}
+		if needZero || (len(out) > 0 && section < 1000) {
+			out = append(out, "零")
+		}
+		out = append(out, sectionToChinese(section, digits, units)+sectionUnits[i])
+		needZero = section < 1000 && i > 0
+	}
+	result := strings.Join(out, "")
+	if strings.HasPrefix(result, "一十") {
+		result = strings.TrimPrefix(result, "一")
+	}
+	return result
+}
+
+func sectionToChinese(section int, digits []string, units []string) string {
+	var out []string
+	zero := false
+	for i := 3; i >= 0; i-- {
+		unitValue := 1
+		for j := 0; j < i; j++ {
+			unitValue *= 10
+		}
+		digit := section / unitValue
+		section %= unitValue
+		if digit == 0 {
+			if len(out) > 0 {
+				zero = true
+			}
+			continue
+		}
+		if zero {
+			out = append(out, "零")
+			zero = false
+		}
+		out = append(out, digits[digit]+units[i])
+	}
+	return strings.Join(out, "")
+}
+
+func digitSpeech(r rune) string {
+	switch r {
+	case '0':
+		return "零"
+	case '1':
+		return "一"
+	case '2':
+		return "二"
+	case '3':
+		return "三"
+	case '4':
+		return "四"
+	case '5':
+		return "五"
+	case '6':
+		return "六"
+	case '7':
+		return "七"
+	case '8':
+		return "八"
+	case '9':
+		return "九"
+	default:
+		return ""
+	}
 }
 
 func normalizeTocIndexText(text string) string {

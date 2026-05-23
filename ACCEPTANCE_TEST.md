@@ -2,27 +2,27 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.10
+版本：1.1.11
 
 ## 环境矩阵
 
 | CPU 架构 + 操作系统 | WPS 要求 | 安装包 |
 | --- | --- | --- |
-| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.10_windows.exe |
-| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.10_arm64.deb |
-| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.10_arm64.deb |
+| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.11_windows.exe |
+| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.11_arm64.deb |
+| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.11_arm64.deb |
 
 ## 安装验收
 
 | CPU 架构 + 操作系统 | 操作 |
 | --- | --- |
-| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.10_windows.exe |
-| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.10_arm64.deb |
-| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.10_amd64.deb |
-| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.10_arm64.deb |
+| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.11_windows.exe |
+| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.11_arm64.deb |
+| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.11_amd64.deb |
+| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.11_arm64.deb |
 
 预期结果：
 
@@ -89,13 +89,15 @@
 
 示例文本：
 
-    这是 WPS 2026 read aloud test，版本是 v1.1.10。
+    这是 WPS 2026 read aloud test，版本是 v1.1.11。
 
 预期结果：
 
 - 中文正常朗读。
 - 英文和数字不被跳过。
-- 英文和数字按单字符中文读法朗读。
+- 普通英文和数字按单字符中文读法朗读。
+- “WPS”读作“达不溜屁挨思”，“Office”和“office”读作“凹斐思”。
+- “10%”读作“百分之十”；加、减、乘、除、等于、大于等于、小于等于等数学符号按中文名称朗读。
 - 逗号、顿号、分号、冒号等语义标点处有自然停顿。
 - 双引号、单引号、书名号、括号等成对符号不额外增加停顿。
 

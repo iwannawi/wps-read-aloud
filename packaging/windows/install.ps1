@@ -103,10 +103,12 @@ function Remove-WpsPluginEntry {
   Set-Content -Path $Path -Value $Content -Encoding UTF8
 }
 
-function Remove-WpsAuthAddinEntry {
+function Set-WpsAuthAddinEntryAllowed {
   param(
     [string]$Path,
-    [string]$Name
+    [string[]]$Names,
+    [string]$AddinName,
+    [string]$AddinPath
   )
   if (!(Test-Path $Path)) {
     return
@@ -117,29 +119,38 @@ function Remove-WpsAuthAddinEntry {
     if (!$Data.wps) {
       return
     }
-    $RemoveKeys = @()
+    $Changed = $false
     foreach ($Property in $Data.wps.PSObject.Properties) {
       if ($Property.Name -eq "namelist") {
         continue
       }
-      if ($Property.Value.name -eq $Name) {
-        $RemoveKeys += $Property.Name
+      $Value = $Property.Value
+      $KnownName = $false
+      foreach ($Name in $Names) {
+        if ($Value.name -eq $Name) {
+          $KnownName = $true
+          break
+        }
+      }
+      $KnownPath = ($Value.path -match '127\.0\.0\.1:19860/addin')
+      if ($KnownName -or $KnownPath) {
+        $Value.name = $AddinName
+        $Value.path = $AddinPath
+        $Value.enable = $true
+        $Value.isload = $true
+        if (!$Value.mode) {
+          $Value | Add-Member -NotePropertyName "mode" -NotePropertyValue 2 -Force
+        }
+        $Changed = $true
       }
     }
-    foreach ($Key in $RemoveKeys) {
-      $Data.wps.PSObject.Properties.Remove($Key)
+    if ($Changed) {
+      $Data | ConvertTo-Json -Depth 10 | Set-Content -Path $Path -Encoding UTF8
+      Write-Host "已保留并刷新 WPS 加载项授权缓存，避免升级后重复确认。"
     }
-    if ($RemoveKeys.Count -gt 0 -and $Data.wps.PSObject.Properties.Name -contains "namelist") {
-      $NameList = [string]$Data.wps.namelist
-      foreach ($Key in $RemoveKeys) {
-        $NameList = $NameList.Replace($Key, "")
-      }
-      $Data.wps.namelist = $NameList.Trim(" ,;")
-    }
-    $Data | ConvertTo-Json -Depth 10 | Set-Content -Path $Path -Encoding UTF8
   }
   catch {
-    Write-Host "旧版 WPS 加载项授权缓存清理失败，已跳过：$($_.Exception.Message)"
+    Write-Host "WPS 加载项授权缓存刷新失败，已跳过：$($_.Exception.Message)"
   }
 }
 
@@ -551,8 +562,7 @@ try {
 "@
   Set-WpsPluginEntry -Path $PublishXml -Entry $OnlineEntry -Names $KnownNames
   Remove-WpsPluginEntry -Path $PluginsXml -Names $KnownNames
-  Remove-WpsAuthAddinEntry -Path (Join-Path $JsDir "authaddin.json") -Name $AddinInternalName
-  Remove-WpsAuthAddinEntry -Path (Join-Path $JsDir "authaddin.json") -Name $AddinDisplayName
+  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath "http://127.0.0.1:19860/addin"
   Clear-WpsJsAddinBlockHost -JsDir $JsDir
 
   Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请彻底退出并重新打开 WPS"

@@ -8,8 +8,8 @@ import (
 )
 
 func TestPreprocessFanchenTextSpeaksAsciiCharacters(t *testing.T) {
-	got := preprocessFanchenText("深度学习是AI的核心技术，使用Python 3.11进行WPS开发。", 1.2)
-	want := "深度学习是 诶 爱 的核心技术， 使用 批 歪 提 艾尺 欧 恩 三 点 一 一 进行 达不溜 批 艾丝 开发。"
+	got := preprocessFanchenText("深度学习是AI的核心技术，使用Python 3.11进行WPS Office开发。", 1.2)
+	want := "深度学习是 诶 爱 的核心技术， 使用 批 歪 提 艾尺 欧 恩 三 点 一 一 进行 达不溜屁挨思 凹斐思 开发。"
 	if got != want {
 		t.Fatalf("preprocessed text = %q, want %q", got, want)
 	}
@@ -17,15 +17,15 @@ func TestPreprocessFanchenTextSpeaksAsciiCharacters(t *testing.T) {
 
 func TestPreprocessFanchenTextAddsPauseOnlyForSemanticPunctuation(t *testing.T) {
 	got := preprocessFanchenText("他说：“你好，WPS！”《标题》继续。", 1.2)
-	want := "他说： “你好， 达不溜 批 艾丝！ ”《标题》继续。"
+	want := "他说： “你好， 达不溜屁挨思！ ”《标题》继续。"
 	if got != want {
 		t.Fatalf("preprocessed text = %q, want %q", got, want)
 	}
 }
 
 func TestPreprocessFanchenTextSpeaksMathSymbols(t *testing.T) {
-	got := preprocessFanchenText("面积S=a*b+3/2，结果>=10%。", 1.2)
-	for _, want := range []string{"艾丝", "诶", "乘", "必", "加", "三", "除", "二", "大于等于", "一 零", "百分号"} {
+	got := preprocessFanchenText("面积S=a*b+3/2，结果>=10%，误差±0.5%。", 1.2)
+	for _, want := range []string{"艾丝", "诶", "乘", "必", "加", "三", "除", "二", "大于等于", "百分之十", "正负", "百分之零点五"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("preprocessed text = %q, missing %q", got, want)
 		}
