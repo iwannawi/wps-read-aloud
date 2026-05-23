@@ -36,16 +36,16 @@ Git 保存源码、脚本、配置、文档和许可证。
 | 类型 | 触发条件 | 示例 |
 | --- | --- | --- |
 | 主版本 | 架构重构、安装方式不兼容、核心能力大幅改变 | 2.0.0 |
-| 次版本 | 新平台、新安装包类型、重要能力升级、交付规范升级 | 1.1.11 |
-| 修订号 | 缺陷修复、文案优化、兼容性小改 | 1.1.11 |
+| 次版本 | 新平台、新安装包类型、重要能力升级、交付规范升级 | 1.1.12 |
+| 修订号 | 缺陷修复、文案优化、兼容性小改 | 1.1.12 |
 
-本项目从 1.1.11 开始按此规则发布。标签格式为：
+本项目从 1.1.12 开始按此规则发布。标签格式为：
 
-    v1.1.11-20260523
+    v1.1.12-20260523
 
 Release 名称格式为：
 
-    wps-read-aloud-comate 1.1.11 20260523
+    wps-read-aloud-comate 1.1.12 20260523
 
 ## 自动发布流程
 
@@ -66,22 +66,22 @@ Release 名称格式为：
 
 推送：
 
-    .\scripts\push_github.ps1 -Tag v1.1.11-20260523
+    .\scripts\push_github.ps1 -Tag v1.1.12-20260523
 
 发布 Release：
 
-    .\scripts\publish_github_release.ps1 -Version 1.1.11 -ReleaseDate 20260523
+    .\scripts\publish_github_release.ps1 -Version 1.1.12 -ReleaseDate 20260523
 
 脚本使用 HTTPS，不使用 SSH。认证优先读取 GitHub CLI，其次读取 Git Credential Manager。脚本不得把 token 写入源码、日志或 Git remote。
 
 ## 构建策略
 
-如果只修改文档、图标、弹窗样式或加载项前端，可复用已有 daemon 二进制。修改 Go 服务、安装脚本、运行时或模型时必须重新编译并重新打包。
+调试阶段如果只修改文档、图标、弹窗样式或加载项前端，可以复用已有 daemon 二进制做局部验证。正式发布时无论修改范围大小，都必须重新构建五类安装包，确保包内版本号、说明文件、校验文件和 Release 内容完全一致。
 
 正式发布必须同时交付：
 
-    wps-read-aloud-comate_1.1.11_windows.exe
-    wps-read-aloud-comate_1.1.11_amd64.deb
-    wps-read-aloud-comate_1.1.11_arm64.deb
-    cn.wps-read-aloud-comate_1.1.11_amd64.deb
-    cn.wps-read-aloud-comate_1.1.11_arm64.deb
+    wps-read-aloud-comate_1.1.12_windows.exe
+    wps-read-aloud-comate_1.1.12_amd64.deb
+    wps-read-aloud-comate_1.1.12_arm64.deb
+    cn.wps-read-aloud-comate_1.1.12_amd64.deb
+    cn.wps-read-aloud-comate_1.1.12_arm64.deb

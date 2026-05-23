@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.11
+版本：1.1.12
 发布时间：20260523
 开发者：Zhang Jingyao
 
@@ -18,26 +18,26 @@
 
 ## 变更
 
-- 朗读文本预处理增加数学读法规则，百分数按“百分之”朗读，常见运算符、比较符、集合符号和数学符号会转换为中文读法。
-- 英文专有词读法调整：“WPS”读作“达不溜屁挨思”，“Office”和“office”读作“凹斐思”。
-- Windows 安装脚本升级时保留并刷新 WPS 已有授权缓存，避免每次升级都主动清掉用户已允许的加载项记录。
-- README、验收测试、发布说明和构建经验文档同步更新为当前 1.1.11 方案。
+- README、验收测试、多平台打包说明、Debian 包说明、版本管理说明和发布脚本同步更新到当前 1.1.12 方案。
+- 文档重新区分“共通架构”和“平台差异”，明确 Windows、银河麒麟、UOS 在安装目录、服务启动、播放层、加载项注册、许可弹窗和日志位置上的差异。
+- README 的技术方案、朗读能力、安装验证和平台限制说明按现有实现重写，删除容易让人误解为右侧面板、音量调节、Piper/eSpeak 或双模型切换的旧描述。
+- 验收说明补充 Windows 原生第三方加载项许可确认框的验证要求，并说明该弹窗由 Windows 版 WPS 客户端安全策略控制。
 
 ## 修复
 
-- 修复 “10%” 被读成逐字符或“百分号”的问题，现在读作“百分之十”。
-- 修复 “WPS Office” 在中文模型下逐字母读法不符合预期的问题。
-- 修复 Windows 升级安装后由于授权缓存被清理，可能再次出现重复加载项许可确认的问题。
+- 修复说明文档中对技术方案、朗读能力和跨平台差异描述不完整的问题。
+- 修复部分脚本和文档仍引用上一版本号的问题。
+- 修复文档中未充分说明 Windows 和 Linux 平台能力差异的问题。
 
 ## 交付文件
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.11_windows.exe |
-| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.11_arm64.deb |
-| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.11_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.1.12_windows.exe |
+| x64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | dist/wps-read-aloud-comate_1.1.12_arm64.deb |
+| x64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 UOS V20 | dist/cn.wps-read-aloud-comate_1.1.12_arm64.deb |
 
 ## 已知限制
 

@@ -2,27 +2,27 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.1.11
+版本：1.1.12
 
 ## 环境矩阵
 
 | CPU 架构 + 操作系统 | WPS 要求 | 安装包 |
 | --- | --- | --- |
-| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.11_windows.exe |
-| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.11_arm64.deb |
-| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.11_arm64.deb |
+| x86/x64 Windows 10/11 | WPS Office 2019 或更高版本 | wps-read-aloud-comate_1.1.12_windows.exe |
+| x64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | WPS Office 2019 for Linux 或更高版本 | wps-read-aloud-comate_1.1.12_arm64.deb |
+| x64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 UOS V20 | WPS Office 2019 for Linux 或更高版本 | cn.wps-read-aloud-comate_1.1.12_arm64.deb |
 
 ## 安装验收
 
 | CPU 架构 + 操作系统 | 操作 |
 | --- | --- |
-| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.11_windows.exe |
-| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.11_arm64.deb |
-| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.11_arm64.deb |
+| x86/x64 Windows 10/11 | 运行 wps-read-aloud-comate_1.1.12_windows.exe |
+| x64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | sudo dpkg -i wps-read-aloud-comate_1.1.12_arm64.deb |
+| x64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 UOS V20 | sudo dpkg -i cn.wps-read-aloud-comate_1.1.12_arm64.deb |
 
 预期结果：
 
@@ -35,6 +35,19 @@
 - Linux 安装日志写入 /var/log/wps-read-aloud-install.log。
 - 覆盖安装同版本或升级安装时不发生文件覆盖冲突。
 - 安装后重启 WPS，可看到“文档朗读”选项卡。
+
+## 平台差异验收
+
+| 验收项 | x86/x64 Windows 10/11 | x64/ARM64 银河麒麟 V10 及以上 | x64/ARM64 UOS V20 |
+| --- | --- | --- | --- |
+| 安装界面 | exe 图形安装界面显示进度、当前动作和日志，不弹命令行窗口 | 使用系统 deb 安装流程 | 使用系统 deb 安装流程 |
+| 安装目录 | 默认位于当前用户目录，不要求管理员写入 Program Files | /opt/wps-read-aloud-comate | /opt/apps/cn.wps-read-aloud-comate/files |
+| 服务管理 | 当前用户 Run 自启动，安装后立即启动本地服务 | systemd 管理 wps-read-aloud-comate.service | systemd 管理 wps-read-aloud-comate.service |
+| 播放层 | Windows WinMM，可中断当前 WAV 播放 | pw-play、paplay、aplay 按环境探测 | pw-play、paplay、aplay 按环境探测 |
+| WPS 许可确认 | 首次信任时可能出现 Windows WPS 原生确认框，点击允许后升级安装不应主动清除允许记录 | 通常不出现 Windows 同款确认框 | 通常不出现 Windows 同款确认框 |
+| 日志 | %LOCALAPPDATA%\WPSReadAloudComate\Logs\install.log | /var/log/wps-read-aloud-install.log 和 journalctl | /var/log/wps-read-aloud-install.log 和 journalctl |
+
+Windows 原生加载项许可确认框由 WPS 客户端安全策略生成，不属于本项目弹窗。验收时只确认名称、来源和升级后不重复清理授权缓存，不要求安装包绕过该安全确认。
 
 ## 选项卡验收
 
@@ -89,7 +102,7 @@
 
 示例文本：
 
-    这是 WPS 2026 read aloud test，版本是 v1.1.11。
+    这是 WPS 2026 read aloud test，版本是 v1.1.12。
 
 预期结果：
 

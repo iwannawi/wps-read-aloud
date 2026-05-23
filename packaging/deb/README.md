@@ -6,10 +6,10 @@
 
 | CPU 架构 + 操作系统 | 包名 | 文件 |
 | --- | --- | --- |
-| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.11_arm64.deb |
-| x64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.11_amd64.deb |
-| ARM64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.11_arm64.deb |
+| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.1.12_arm64.deb |
+| x64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.12_amd64.deb |
+| ARM64 UOS V20 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.1.12_arm64.deb |
 
 ## 安装内容
 
@@ -25,6 +25,15 @@
 - /lib/systemd/system/wps-read-aloud-comate.service。
 - /usr/bin/wps-read-aloud-comate-register。
 - /var/log/wps-read-aloud-install.log。
+
+## Linux 平台能力
+
+- 仅支持 WPS Office 2019 for Linux 或更高版本。
+- 本地服务固定监听 127.0.0.1:19860，不访问外网。
+- 语音合成使用包内 Sherpa-onnx 与 vits-zh-hf-fanchen-C 模型。
+- 文本预处理规则与 Windows 版本保持一致，包括中英文混读、数学符号、百分数、Office/WPS 固定读法和标点停顿。
+- 播放层按当前桌面音频环境探测 pw-play、paplay 和 aplay。不同发行版的音频栈不同，因此播放器选择结果可能不同。
+- Linux 版通常不显示 Windows 版 WPS 的原生第三方加载项确认框；是否弹出确认仍以目标机 WPS for Linux 的实际策略为准。
 
 ## 构建
 
