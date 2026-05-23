@@ -142,12 +142,11 @@ else {
   $headerHeight = 460
 }
 
-$pathY = $headerHeight + 16
-$progressY = $pathY + 48
-$actionY = $progressY + 36
-$detailY = $actionY + 30
-$detailBoxY = $detailY + 36
-$detailBoxHeight = 125
+$progressY = $headerHeight + 22
+$actionY = $progressY + 42
+$detailY = $actionY + 34
+$detailBoxY = $detailY + 42
+$detailBoxHeight = 210
 $buttonY = $detailBoxY + $detailBoxHeight + 20
 $layoutHeight = $buttonY + 56
 $formHeight = $layoutHeight
@@ -214,25 +213,6 @@ $header.Add_Paint({
   }
 })
 $main.Controls.Add($header)
-
-$pathTitle = New-Object System.Windows.Forms.Label
-$pathTitle.Text = "安装路径"
-$pathTitle.AutoSize = $false
-$pathTitle.Size = New-Object System.Drawing.Size(112, 40)
-$pathTitle.ForeColor = [System.Drawing.Color]::FromArgb(36, 48, 64)
-$pathTitle.Location = New-Object System.Drawing.Point($margin, ($pathY + 6))
-$pathTitle.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-$pathTitle.UseCompatibleTextRendering = $false
-$main.Controls.Add($pathTitle)
-
-$pathBox = New-Object System.Windows.Forms.TextBox
-$pathBox.Text = $InstallDir
-$pathBox.ReadOnly = $true
-$pathBox.BorderStyle = "FixedSingle"
-$pathBox.Location = New-Object System.Drawing.Point(($margin + 132), $pathY)
-$pathBox.Size = New-Object System.Drawing.Size(($contentWidth - 132), 42)
-$pathBox.ForeColor = [System.Drawing.Color]::FromArgb(20, 28, 42)
-$main.Controls.Add($pathBox)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
 $progressBar.Location = New-Object System.Drawing.Point($margin, $progressY)

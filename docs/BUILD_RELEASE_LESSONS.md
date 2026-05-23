@@ -72,6 +72,8 @@
 - Windows Sherpa-onnx 当前不支持 --tts-sample-rate。
 - Windows 短文档可朗读但长文档启动失败时，优先检查启动预合成策略、并发合成数量、单句异常字符和系统资源压力，不要直接判断为安装包损坏。
 - Windows 播放链路应使用原生 WinMM 播放 WAV，避免每句朗读都启动 PowerShell 播放进程。
+- Windows 播放停止不能使用同步 PlaySound 等待当前 WAV 自然结束。应使用异步 PlaySound，并在停止请求到达时调用 PlaySound(NULL) 中断当前声音。
+- 不要把复杂的 Windows 包内播放停止测试写成超长 PowerShell 内联命令；本地执行器可能中断且难以诊断。应落成固定测试脚本后再运行。
 - Windows PowerShell 写配置文件可能带 UTF-8 BOM。Go 简易 YAML 解析器必须去掉行首 BOM，否则 listen 会回退到默认端口。
 - 长文档预合成不能只按累计字数判断。短句文档会在启动阶段并发创建大量 Sherpa 进程，必须同时设置每轮预合成句数上限。
 - 逗号、顿号、冒号、分号等句内标点不要拆成多个 TTS 任务。

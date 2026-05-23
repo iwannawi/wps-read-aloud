@@ -329,6 +329,7 @@ func (s *Server) stopLocked() {
 	if s.session != nil {
 		s.session.cancel()
 	}
+	stopWavPlayback()
 	for cmd := range s.current {
 		if cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()
@@ -586,21 +587,25 @@ func (s *Server) runSherpa(ctx context.Context, outputPath string, text string, 
 }
 
 func (s *Server) play(ctx context.Context, wav string) error {
-	done := make(chan error, 1)
-	go func() {
-		done <- playWavSync(wav)
-	}()
-	select {
-	case err := <-done:
+	duration, err := wavDuration(wav)
+	if err != nil {
 		return err
+	}
+	if err := playWavAsync(wav); err != nil {
+		return err
+	}
+	timer := time.NewTimer(duration + 120*time.Millisecond)
+	defer timer.Stop()
+	select {
 	case <-ctx.Done():
 		stopWavPlayback()
-		<-done
 		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
-func playWavSync(path string) error {
+func playWavAsync(path string) error {
 	ptr, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
 		return err
@@ -608,7 +613,7 @@ func playWavSync(path string) error {
 	ret, _, callErr := procPlaySoundW.Call(
 		uintptr(unsafe.Pointer(ptr)),
 		0,
-		uintptr(0x00020000),
+		uintptr(0x00020000|0x0001|0x0002),
 	)
 	if ret == 0 {
 		if callErr != syscall.Errno(0) {
@@ -617,6 +622,22 @@ func playWavSync(path string) error {
 		return errors.New("Windows 音频播放失败")
 	}
 	return nil
+}
+
+func wavDuration(path string) (time.Duration, error) {
+	wav, err := readPCM16Wav(path)
+	if err != nil {
+		return 0, err
+	}
+	if wav.sampleRate == 0 || wav.channels == 0 || wav.bitsPerSample == 0 {
+		return 0, errors.New("invalid wav duration")
+	}
+	bytesPerFrame := int(wav.channels) * int(wav.bitsPerSample) / 8
+	if bytesPerFrame <= 0 {
+		return 0, errors.New("invalid wav frame size")
+	}
+	frames := len(wav.data) / bytesPerFrame
+	return time.Duration(frames) * time.Second / time.Duration(wav.sampleRate), nil
 }
 
 func stopWavPlayback() {

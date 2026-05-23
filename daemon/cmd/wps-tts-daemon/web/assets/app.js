@@ -7,8 +7,7 @@
     : SERVICE_ORIGIN;
   var MAX_SENTENCES = 20000;
   var MAX_SENTENCE_LENGTH = 1000;
-  var SENTENCE_END = /[。！？!?；;]+|[\r\n]+|[\uFFFC\uFFFD]+/g;
-  var NON_TEXT_OBJECT = /^[\uFFFC\uFFFD]+$/;
+  var SENTENCE_END = /[。！？!?；;]+|[\r\n]+/g;
   var WD_GO_TO_PAGE = 1;
   var WD_GO_TO_ABSOLUTE = 1;
   var WD_ACTIVE_END_PAGE_NUMBER = 3;
@@ -349,8 +348,7 @@
 
     SENTENCE_END.lastIndex = 0;
     while ((match = SENTENCE_END.exec(raw)) !== null) {
-      var isObject = NON_TEXT_OBJECT.test(match[0]);
-      var end = isObject ? match.index : match.index + match[0].length;
+      var end = match.index + match[0].length;
       pushSegment(segments, raw, base, start, end);
       if (segments.length >= MAX_SENTENCES) {
         break;
@@ -415,8 +413,7 @@
     var match;
     SENTENCE_END.lastIndex = 0;
     while ((match = SENTENCE_END.exec(raw)) !== null) {
-      var isObject = NON_TEXT_OBJECT.test(match[0]);
-      var end = isObject ? match.index : match.index + match[0].length;
+      var end = match.index + match[0].length;
       pushSegment(segments, raw, base, start, end, scopeStart, scopeEnd);
       if (segments.length >= MAX_SENTENCES) {
         return;
@@ -430,13 +427,15 @@
     var text = raw.slice(start, end);
     var cleaned = readableSegmentText(text);
     var trimmed = cleaned.trim();
-    if (!trimmed) {
+    if (!hasReadableVoiceContent(trimmed)) {
       return;
     }
-    var leading = text.search(/\S/);
-    var trailing = text.length - text.trimEnd().length;
-    var localStart = start + (leading < 0 ? 0 : leading);
-    var localEnd = end - trailing;
+    var visible = visibleTextBounds(text);
+    if (!visible) {
+      return;
+    }
+    var localStart = start + visible.start;
+    var localEnd = start + visible.end;
     segments.push({
       text: trimmed.length > MAX_SENTENCE_LENGTH ? trimmed.slice(0, MAX_SENTENCE_LENGTH) : trimmed,
       start: base + localStart,
@@ -448,9 +447,40 @@
 
   function readableSegmentText(text) {
     return String(text || "")
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
       .replace(/[\uFFFC\uFFFD]/g, "")
       .replace(/\uFEFF/g, "");
+  }
+
+  function hasReadableVoiceContent(text) {
+    return /[0-9A-Za-z\u3400-\u9FFF]/.test(String(text || ""));
+  }
+
+  function visibleTextBounds(text) {
+    var value = String(text || "");
+    var start = 0;
+    var end = value.length;
+    while (start < end && !isSelectableTextChar(value.charAt(start))) {
+      start += 1;
+    }
+    while (end > start && !isSelectableTextChar(value.charAt(end - 1))) {
+      end -= 1;
+    }
+    if (end <= start) {
+      return null;
+    }
+    return { start: start, end: end };
+  }
+
+  function isSelectableTextChar(ch) {
+    if (!ch) {
+      return false;
+    }
+    var code = ch.charCodeAt(0);
+    if (code <= 0x1F || (code >= 0x7F && code <= 0x9F) || code === 0xFEFF || code === 0xFFFC || code === 0xFFFD) {
+      return false;
+    }
+    return /\S/.test(ch);
   }
 
   function selectDocumentRange(segment) {
@@ -492,7 +522,7 @@
     return String(text || "")
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
       .replace(/[\uFFFC\uFFFD]/g, "")
       .trim();
   }
@@ -938,7 +968,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.1.9" },
+        { label: "版本", value: "1.1.10" },
         { label: "发布日期", value: "20260523" },
         { label: "开发者", value: "Zhang Jingyao" },
         { label: "软件包", value: "wps-read-aloud-comate" },
