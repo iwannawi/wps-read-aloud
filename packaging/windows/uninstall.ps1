@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$InstallDir = "$env:LOCALAPPDATA\Programs\WPS Read Aloud Comate",
   [switch]$Silent
 )
