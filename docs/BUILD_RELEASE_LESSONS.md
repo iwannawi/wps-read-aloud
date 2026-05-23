@@ -88,6 +88,7 @@
 
 - dist 最终只保留本版本五个安装包和五个 sha256 文件。
 - 不保留临时检查脚本、发布日志、旧安装包和可能含认证信息的输出。
+- 发布前如果 dist/github-push.log 仍存在，verify_release_artifacts.py 会阻断 Release；推送成功后应删除该日志再发布。
 - dist/wps-tts-daemon 不是最终交付物，发布前清理。
 - 清理 dist 时不要在外层 PowerShell 双引号中直接写 $dist、$_ 等变量；变量会被提前展开。使用反引号转义变量，或避免使用外层变量。
 - Debian 包内容检查时不要硬编码 ./control；当前 tar 成员路径不带 ./ 前缀。
