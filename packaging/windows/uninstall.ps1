@@ -35,6 +35,7 @@ function Remove-ProjectPluginEntries {
   param([string]$Content)
   $Pattern = 'wps-read-aloud|WPS Read Aloud|WPS 文档朗读助手|文档朗读助手|127\.0\.0\.1:19860|WPSReadAloudComate'
   $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b(?=[^>]*($Pattern))[^>]*/>", "")
+  $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b(?=[^>]*($Pattern))[^>]*/>", "")
   $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b(?=[^>]*($Pattern))[\s\S]*?</jsplugin>", "")
   return $Content
 }
@@ -131,6 +132,7 @@ try {
   $JsDir = Join-Path $env:APPDATA "Kingsoft\wps\jsaddons"
   if (Test-Path $JsDir) {
     Get-ChildItem -Path $JsDir -Directory -Filter "wps-read-aloud_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+    Get-ChildItem -Path $JsDir -Directory -Filter "文档朗读助手_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
     Remove-WpsPluginEntry -Path (Join-Path $JsDir "publish.xml")
     Remove-WpsPluginEntry -Path (Join-Path $JsDir "jsplugins.xml")
     Remove-WpsAuthEntry -Path (Join-Path $JsDir "authaddin.json")
@@ -138,6 +140,7 @@ try {
   }
 
   Remove-Item -LiteralPath (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS 文档朗读助手") -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS文档朗读助手") -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WPSReadAloudComate" -Recurse -Force -ErrorAction SilentlyContinue
   Set-Location $env:TEMP
   Remove-InstallDirAfterExit -Root $InstallDir

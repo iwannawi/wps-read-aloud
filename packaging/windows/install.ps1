@@ -62,6 +62,7 @@ function Set-WpsPluginEntry {
     foreach ($Name in $Names) {
       $Escaped = [regex]::Escape($Name)
       $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
+      $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[^>]*/>", "")
       $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[\s\S]*?</jsplugin>", "")
     }
     if ($Content -match '</jsplugins>') {
@@ -81,6 +82,7 @@ function Remove-ProjectPluginEntries {
   param([string]$Content)
   $Pattern = 'wps-read-aloud|WPS Read Aloud|WPS 文档朗读助手|文档朗读助手|127\.0\.0\.1:19860'
   $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b(?=[^>]*($Pattern))[^>]*/>", "")
+  $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b(?=[^>]*($Pattern))[^>]*/>", "")
   $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b(?=[^>]*($Pattern))[\s\S]*?</jsplugin>", "")
   return $Content
 }
@@ -98,6 +100,7 @@ function Remove-WpsPluginEntry {
   foreach ($Name in $Names) {
     $Escaped = [regex]::Escape($Name)
     $Content = [regex]::Replace($Content, "(?is)\s*<jspluginonline\b[^>]*name=`"$Escaped`"[^>]*/>", "")
+    $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[^>]*/>", "")
     $Content = [regex]::Replace($Content, "(?is)\s*<jsplugin\b[^>]*name=`"$Escaped`"[\s\S]*?</jsplugin>", "")
   }
   Set-Content -Path $Path -Value $Content -Encoding UTF8
@@ -501,7 +504,7 @@ function Remove-OldStartupEntries {
 
 function New-UninstallShortcut {
   param([string]$Root)
-  $ShortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS 文档朗读助手"
+  $ShortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS文档朗读助手"
   New-Item -ItemType Directory -Force -Path $ShortcutDir | Out-Null
   $ShortcutPath = Join-Path $ShortcutDir "卸载 WPS 文档朗读助手.lnk"
   $PowerShell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -589,33 +592,55 @@ try {
   }
 
   $Launcher = New-DaemonLauncher -Root $InstallDir -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
-  Write-InstallProgress -Percent 55 -Action "配置按需启动" -Detail "朗读服务仅在使用朗读功能时启动"
+  Write-InstallProgress -Percent 55 -Action "配置本机服务" -Detail "朗读服务不写入开机自启动项"
   Write-Host "已清理旧版自启动项。新版 Windows 包不会开机自启动朗读服务。"
 
   Write-InstallProgress -Percent 70 -Action "注册 WPS 加载项" -Detail "正在写入 WPS 加载项配置"
   $JsDir = Join-Path $env:APPDATA "Kingsoft\wps\jsaddons"
   New-Item -ItemType Directory -Force -Path $JsDir | Out-Null
   $AddinVersion = $VersionInfo.version
-  $Target = Join-Path $JsDir "wps-read-aloud_$AddinVersion"
+  Get-ChildItem -Path $JsDir -Directory -Filter "wps-read-aloud_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+  Get-ChildItem -Path $JsDir -Directory -Filter "$AddinDisplayName`_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+  $Target = Join-Path $JsDir ($AddinInternalName + "_" + $AddinVersion)
   New-Item -ItemType Directory -Force -Path $Target | Out-Null
   Copy-Item -Path (Join-Path $InstallDir "addin\*") -Destination $Target -Recurse -Force
   Write-WindowsRuntimeConfig -Path (Join-Path $Target "assets\runtime-config.js") -Root $InstallDir -Launcher $Launcher -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
   Write-WindowsRuntimeConfig -Path (Join-Path $InstallDir "addin\assets\runtime-config.js") -Root $InstallDir -Launcher $Launcher -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
 
-  $LocalIndexUrl = ConvertTo-FileUri -Path (Join-Path $Target "index.html")
-  $LocalRibbonUrl = ConvertTo-FileUri -Path (Join-Path $Target "ribbon.xml")
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
   $KnownNames = @($AddinInternalName, $AddinDisplayName, "WPS 文档朗读助手", "wps-read-aloud-comate", "wps-read-aloud-xc", "wps-read-aloud-zhangjingyao")
+  $AddinRootUrl = "http://127.0.0.1:19860/addin/"
+  $RibbonUrl = "http://127.0.0.1:19860/addin/ribbon.xml"
+  $PublishEntry = @"
+<jspluginonline name="$AddinDisplayName" type="wps" enable="enable_dev" install="$AddinRootUrl" url="$AddinRootUrl" desc="$AddinDescription"/>
+"@
   $LocalEntry = @"
-<jsplugin name="$AddinDisplayName" type="wps" url="$LocalIndexUrl" version="$AddinVersion" desc="$AddinDescription">
-    <ribbon file="$LocalRibbonUrl"/>
+<jsplugin name="$AddinDisplayName" type="wps" enable="enable_dev" url="$AddinRootUrl" version="$AddinVersion" desc="$AddinDescription">
+    <ribbon file="$RibbonUrl"/>
   </jsplugin>
 "@
-  Remove-WpsPluginEntry -Path $PublishXml -Names $KnownNames
+  Set-WpsPluginEntry -Path $PublishXml -Entry $PublishEntry -Names $KnownNames
   Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry -Names $KnownNames
-  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath $LocalIndexUrl
+  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath "http://127.0.0.1:19860/addin"
   Clear-WpsJsAddinBlockHost -JsDir $JsDir
+  try {
+    $Healthy = $false
+    try {
+      $Response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:19860/health" -TimeoutSec 2
+      $Healthy = ($Response.StatusCode -ge 200 -and $Response.StatusCode -lt 500)
+    }
+    catch {
+      $Healthy = $false
+    }
+    if (!$Healthy) {
+      Start-Process -FilePath $Daemon -ArgumentList @("-config", (Join-Path $InstallDir "config.yaml")) -WorkingDirectory $InstallDir -WindowStyle Hidden
+      Write-Host "已启动本地朗读服务，供 WPS 重新打开后加载“文档朗读”选项卡。"
+    }
+  }
+  catch {
+    Write-Host "本地朗读服务启动失败，WPS 打开后可通过开始菜单重新运行安装程序修复：$($_.Exception.Message)"
+  }
   Write-InstallProgress -Percent 86 -Action "注册卸载入口" -Detail "正在写入开始菜单和控制面板卸载信息"
   New-UninstallShortcut -Root $InstallDir
   Register-UninstallEntry -Root $InstallDir -VersionInfo $VersionInfo

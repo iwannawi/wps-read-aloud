@@ -8,11 +8,11 @@
 
 | 目标 | 安装包 | 安装路径 | 启动方式 |
 | --- | --- | --- | --- |
-| x86/x64 Windows 10/11 | wps-read-aloud-comate_1.1.13_windows.exe | 用户选择的程序目录 | 按需启动，不写入开机或登录自启动 |
-| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.13_amd64.deb | /opt/wps-read-aloud-comate | systemd |
-| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.13_arm64.deb | /opt/wps-read-aloud-comate | systemd |
-| x64 UOS V20 | cn.wps-read-aloud-comate_1.1.13_amd64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
-| ARM64 UOS V20 | cn.wps-read-aloud-comate_1.1.13_arm64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
+| x86/x64 Windows 10/11 | wps-read-aloud-comate_1.1.14_windows.exe | 用户选择的程序目录 | 按需启动，不写入开机或登录自启动 |
+| x64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.14_amd64.deb | /opt/wps-read-aloud-comate | systemd |
+| ARM64 银河麒麟 V10 及以上 | wps-read-aloud-comate_1.1.14_arm64.deb | /opt/wps-read-aloud-comate | systemd |
+| x64 UOS V20 | cn.wps-read-aloud-comate_1.1.14_amd64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
+| ARM64 UOS V20 | cn.wps-read-aloud-comate_1.1.14_arm64.deb | /opt/apps/cn.wps-read-aloud-comate/files | systemd |
 
 ## 共用内容
 

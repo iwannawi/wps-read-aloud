@@ -162,8 +162,8 @@ def check_windows_package(target: dict, artifact: Path) -> None:
             fail(f"Windows installer still contains startup registration function: {artifact.name}")
         if "Wait-LocalServiceHealthy" in install_script:
             fail(f"Windows installer still waits for a daemon started during install: {artifact.name}")
-        if "Set-WpsPluginEntry -Path $PublishXml -Entry" in install_script:
-            fail(f"Windows installer still registers online publish entry: {artifact.name}")
+        if "http://127.0.0.1:19860/addin/" not in install_script:
+            fail(f"Windows installer does not register the verified HTTP add-in root: {artifact.name}")
         if "WPSReadAloudComate" not in uninstall_script or "Uninstall" not in install_script:
             fail(f"Windows uninstall integration is incomplete: {artifact.name}")
     if version.get("system") != "windows" or version.get("architecture") != "x86":

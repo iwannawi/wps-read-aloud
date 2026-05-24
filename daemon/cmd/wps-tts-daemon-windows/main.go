@@ -91,6 +91,7 @@ const (
 	prefetchTextTarget           = 240
 	prefetchSentenceLimit        = 8
 	synthConcurrencyLimit        = 3
+	windowsIdleShutdown          = 30 * time.Minute
 	pauseBaseRate                = 1.2
 	standardPauseMsAtBaseRate    = 400
 	sentenceEndPauseMsAtBaseRate = 600
@@ -348,7 +349,7 @@ func (s *Server) idleMonitor() {
 		idleFor := time.Since(s.lastUse)
 		active := s.session != nil
 		s.mu.Unlock()
-		if !active && idleFor > 2*time.Minute {
+		if !active && idleFor > windowsIdleShutdown {
 			log.Printf("idle timeout reached; shutting down Windows on-demand service")
 			s.shutdownServer()
 			return

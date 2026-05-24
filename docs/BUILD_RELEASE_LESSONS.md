@@ -39,6 +39,8 @@
 - 注册名称使用中文“文档朗读助手”。
 - 授权描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”。
 - Windows WPS 端优先写 jsplugins.xml 本地入口，避免为了显示选项卡而要求 daemon 常驻。
+- Windows WPS 12.9 实机验证：file://、file:///目录/、file:///index.html、本地 main.js 结构均不能稳定显示选项卡；可显示的入口是 HTTP 根地址 http://127.0.0.1:19860/addin/，不能把 url 指向具体 index.html。
+- Windows HTTP 根地址模式要求 WPS 打开时本地服务仍在运行；2 分钟空闲退出过短，会导致安装后稍晚打开 WPS 看不到选项卡。Windows 空闲退出时间至少保留 30 分钟。
 - 不再写 publish.xml online 入口；旧 publish.xml 内本项目条目只清理，不新增。
 - Windows WPS 对 127.0.0.1 online 入口可能生成一次原生安全确认，项目侧只能避免重复注册，不能伪造或关闭 WPS 安全确认。
 - 升级时不要清理已允许的 authaddin.json 授权缓存；应保留并刷新本项目条目，避免每次升级后重复弹出许可确认。
