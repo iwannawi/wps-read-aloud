@@ -16,6 +16,13 @@ import (
 var payloadMarker = []byte("WPS_READ_ALOUD_COMATE_PAYLOAD_ZIP_V1\n")
 
 func main() {
+	if !isAdmin() {
+		if err := relaunchElevated(); err != nil {
+			showMessage("WPS 文档朗读助手安装失败", "安装需要修改 WPS 的 oem.ini 配置。请右键以管理员身份运行安装程序。\n\n错误代码："+err.Error(), 0x10)
+			os.Exit(1)
+		}
+		return
+	}
 	usedUI, err := run()
 	if err != nil {
 		title := "WPS 文档朗读助手安装失败"
@@ -28,6 +35,37 @@ func main() {
 	if !usedUI {
 		showMessage("WPS 文档朗读助手", "安装完成。若 WPS 已打开，请重启 WPS。", 0x40)
 	}
+}
+
+func isAdmin() bool {
+	shell32 := syscall.NewLazyDLL("shell32.dll")
+	isUserAnAdmin := shell32.NewProc("IsUserAnAdmin")
+	ret, _, _ := isUserAnAdmin.Call()
+	return ret != 0
+}
+
+func relaunchElevated() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	shell32 := syscall.NewLazyDLL("shell32.dll")
+	shellExecute := shell32.NewProc("ShellExecuteW")
+	ret, _, callErr := shellExecute.Call(
+		0,
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("runas"))),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(exe))),
+		0,
+		0,
+		1,
+	)
+	if ret <= 32 {
+		if callErr != syscall.Errno(0) {
+			return callErr
+		}
+		return fmt.Errorf("ShellExecute runas failed: %d", ret)
+	}
+	return nil
 }
 
 func run() (bool, error) {

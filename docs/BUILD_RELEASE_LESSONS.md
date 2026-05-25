@@ -15,6 +15,7 @@
 ## 构建
 
 - 正式发布只使用 packaging/build_all.py 构建五个目标。
+- 正式全目标构建前清理 build/deb、build/windows、auth-test、launcher-test 和临时 .test 文件，避免旧版本解包目录或测试二进制干扰发版检查。
 - 单目标构建只用于调试，不用于正式发布。
 - 目标清单：windows、kylin-amd64、kylin-arm64、uos-amd64、uos-arm64。
 - 在 Windows 本机交叉编译 Linux daemon 时使用 -buildvcs=false，避免受限环境读取 VCS 元信息失败。
@@ -23,7 +24,7 @@
 ## Windows 安装
 
 - 默认安装目录使用 %LOCALAPPDATA%\Programs\WPS Read Aloud Comate，不写入 C:\Program Files。
-- Windows 版本不写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run，不创建计划任务，不在安装后启动 daemon。
+- Windows 版本不写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run，不创建计划任务，不在安装后启动 daemon。选项卡加载依赖 OEM + publish 离线目录，不依赖 daemon 常驻。
 - 旧版计划任务只做清理兼容。RunLevel 只允许 Limited 或 Highest，不使用 LeastPrivilege。
 - 安装阶段只生成 start-daemon.ps1，供 WPS 加载项按需启动服务。
 - 安装前必须停止当前安装目录下正在运行的旧版 wps-tts-daemon.exe。
@@ -38,9 +39,11 @@
 - 安装脚本不得覆盖整个 WPS 加载项配置文件，只增删本项目条目。
 - 注册名称使用中文“文档朗读助手”。
 - 授权描述使用“WPS文档朗读助手加载项申请访问本机语音合成服务”。
-- Windows WPS 端优先写 jsplugins.xml 本地入口，避免为了显示选项卡而要求 daemon 常驻。
-- Windows WPS 12.9 实机验证：file://、file:///目录/、file:///index.html、本地 main.js 结构均不能稳定显示选项卡；可显示的入口是 HTTP 根地址 http://127.0.0.1:19860/addin/，不能把 url 指向具体 index.html。
-- Windows HTTP 根地址模式要求 WPS 打开时本地服务仍在运行；2 分钟空闲退出过短，会导致安装后稍晚打开 WPS 看不到选项卡。Windows 空闲退出时间至少保留 30 分钟。
+- Windows WPS 端使用 OEM + publish 离线模式：复制“文档朗读助手_版本号”目录，生成 jsplugins.xml，并将 oem.ini 的 JSPluginsServer 指向本地 jsplugins.xml。
+- Windows WPS 2019 离线模式需要 oem.ini 中的 disableFileCheckIntercept=true，否则可能无法完整生成或加载离线加载项。
+- Windows 端停止朗读不能调用 /shutdown。停止朗读只调用 /read/stop，终止当前会话、播放和 sherpa-onnx 子进程。
+- 本机 Windows 环境中 python 命令可能被 Microsoft Store 应用执行别名接管，py 命令也可能不可用。构建和同步脚本优先使用 Codex 运行时 Python：C:\Users\zhangjingyao\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe。
+- Windows HTTP 根地址模式已废弃。它要求 WPS 打开时本地服务仍在运行，容易导致安装后稍晚打开 WPS 看不到选项卡。
 - 不再写 publish.xml online 入口；旧 publish.xml 内本项目条目只清理，不新增。
 - Windows WPS 对 127.0.0.1 online 入口可能生成一次原生安全确认，项目侧只能避免重复注册，不能伪造或关闭 WPS 安全确认。
 - 升级时不要清理已允许的 authaddin.json 授权缓存；应保留并刷新本项目条目，避免每次升级后重复弹出许可确认。

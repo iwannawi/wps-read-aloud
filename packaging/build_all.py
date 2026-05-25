@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "packaging" / "platforms.json"
 PYTHON = sys.executable
 DIST = ROOT / "dist"
+BUILD = ROOT / "build"
 INTERMEDIATE_PREFIXES = (
     "wps-tts-daemon-linux-",
     "wps-tts-daemon-windows-",
@@ -148,6 +149,18 @@ def cleanup_stale_release_files():
 			path.unlink()
 
 
+def cleanup_stale_build_files():
+    if not BUILD.is_dir():
+        return
+    for name in ("deb", "windows", "auth-test", "launcher-test"):
+        path = BUILD / name
+        if path.exists():
+            shutil.rmtree(path)
+    for path in BUILD.glob("*.test"):
+        if path.is_file():
+            path.unlink()
+
+
 def check_platform_inputs_if_all_targets(targets, selected_targets):
     if {target["id"] for target in targets} == {target["id"] for target in selected_targets}:
         run([PYTHON, "packaging/check_platform_inputs.py"])
@@ -189,6 +202,7 @@ def main():
     selected_targets = [target for target in targets if target["id"] in selected]
     if {target["id"] for target in targets} == {target["id"] for target in selected_targets}:
         cleanup_stale_release_files()
+        cleanup_stale_build_files()
     check_platform_inputs_if_all_targets(targets, selected_targets)
 
     for target in selected_targets:

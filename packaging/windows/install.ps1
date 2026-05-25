@@ -78,6 +78,11 @@ function Set-WpsPluginEntry {
   Set-Content -Path $Path -Value $Content -Encoding UTF8
 }
 
+function Escape-XmlAttribute {
+  param([string]$Value)
+  return [System.Security.SecurityElement]::Escape([string]$Value)
+}
+
 function Remove-ProjectPluginEntries {
   param([string]$Content)
   $Pattern = 'wps-read-aloud|WPS Read Aloud|WPS 文档朗读助手|文档朗读助手|127\.0\.0\.1:19860'
@@ -469,6 +474,74 @@ function ConvertTo-FileUri {
   return ([System.Uri]([System.IO.Path]::GetFullPath($Path))).AbsoluteUri
 }
 
+function Set-IniSectionValue {
+  param(
+    [string]$Content,
+    [string]$Section,
+    [string]$Key,
+    [string]$Value
+  )
+  $Lines = New-Object System.Collections.Generic.List[string]
+  if (![string]::IsNullOrEmpty($Content)) {
+    foreach ($Line in ($Content -split "`r?`n")) {
+      $Lines.Add($Line)
+    }
+  }
+  $SectionHeader = "[$Section]"
+  $SectionIndex = -1
+  for ($i = 0; $i -lt $Lines.Count; $i += 1) {
+    if ($Lines[$i].Trim().Equals($SectionHeader, [System.StringComparison]::OrdinalIgnoreCase)) {
+      $SectionIndex = $i
+      break
+    }
+  }
+  if ($SectionIndex -lt 0) {
+    if ($Lines.Count -gt 0 -and ![string]::IsNullOrWhiteSpace($Lines[$Lines.Count - 1])) {
+      $Lines.Add("")
+    }
+    $Lines.Add($SectionHeader)
+    $Lines.Add("$Key=$Value")
+    return ($Lines -join "`r`n")
+  }
+  $InsertAt = $Lines.Count
+  for ($i = $SectionIndex + 1; $i -lt $Lines.Count; $i += 1) {
+    if ($Lines[$i].Trim() -match '^\[[^\]]+\]$') {
+      $InsertAt = $i
+      break
+    }
+    if ($Lines[$i] -match "^\s*$([regex]::Escape($Key))\s*=") {
+      $Lines[$i] = "$Key=$Value"
+      return ($Lines -join "`r`n")
+    }
+  }
+  $Lines.Insert($InsertAt, "$Key=$Value")
+  return ($Lines -join "`r`n")
+}
+
+function Set-WpsOemOfflineConfig {
+  param(
+    [object]$WpsInfo,
+    [string]$PluginsXml
+  )
+  $OemPath = Join-Path $WpsInfo.Directory "cfgs\oem.ini"
+  $OemDir = Split-Path -Parent $OemPath
+  if (!(Test-Path $OemDir)) {
+    New-Item -ItemType Directory -Force -Path $OemDir | Out-Null
+  }
+  if (!(Test-Path $OemPath)) {
+    New-Item -ItemType File -Force -Path $OemPath | Out-Null
+  }
+  Backup-ConfigFile -Path $OemPath
+  $Content = Get-Content -Raw -Path $OemPath -Encoding UTF8
+  $ServerUri = ConvertTo-FileUri -Path $PluginsXml
+  $Content = Set-IniSectionValue -Content $Content -Section "Support" -Key "JsApiPlugin" -Value "true"
+  $Content = Set-IniSectionValue -Content $Content -Section "Support" -Key "disableFileCheckIntercept" -Value "true"
+  $Content = Set-IniSectionValue -Content $Content -Section "Server" -Key "JSPluginsServer" -Value $ServerUri
+  Set-Content -Path $OemPath -Value $Content -Encoding UTF8
+  Write-Host "已更新 WPS OEM 配置：$OemPath"
+  Write-Host "JSPluginsServer：$ServerUri"
+}
+
 function Write-WindowsRuntimeConfig {
   param(
     [string]$Path,
@@ -506,7 +579,7 @@ function New-UninstallShortcut {
   param([string]$Root)
   $ShortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS文档朗读助手"
   New-Item -ItemType Directory -Force -Path $ShortcutDir | Out-Null
-  $ShortcutPath = Join-Path $ShortcutDir "卸载 WPS 文档朗读助手.lnk"
+  $ShortcutPath = Join-Path $ShortcutDir "卸载 WPS文档朗读助手.lnk"
   $PowerShell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
   if (!(Test-Path $PowerShell)) {
     $PowerShell = "powershell.exe"
@@ -556,6 +629,21 @@ function Register-UninstallEntry {
   }
 }
 
+function Write-InstallState {
+  param(
+    [string]$Root,
+    [object]$WpsInfo,
+    [string]$PluginsXml
+  )
+  $State = [ordered]@{
+    wpsExe = [string]$WpsInfo.Path
+    wpsOemIni = [string](Join-Path $WpsInfo.Directory "cfgs\oem.ini")
+    jsPluginsXml = [string]$PluginsXml
+    jsPluginsServer = [string](ConvertTo-FileUri -Path $PluginsXml)
+  } | ConvertTo-Json -Depth 4
+  Set-Content -Path (Join-Path $Root "install-state.json") -Value $State -Encoding UTF8
+}
+
 try {
   Write-InstallProgress -Percent 3 -Action "初始化安装" -Detail "正在准备安装环境"
   $Source = Join-Path $PSScriptRoot "app"
@@ -595,13 +683,13 @@ try {
   Write-InstallProgress -Percent 55 -Action "配置本机服务" -Detail "朗读服务不写入开机自启动项"
   Write-Host "已清理旧版自启动项。新版 Windows 包不会开机自启动朗读服务。"
 
-  Write-InstallProgress -Percent 70 -Action "注册 WPS 加载项" -Detail "正在写入 WPS 加载项配置"
+  Write-InstallProgress -Percent 70 -Action "注册 WPS 加载项" -Detail "正在写入 WPS 离线加载项配置"
   $JsDir = Join-Path $env:APPDATA "Kingsoft\wps\jsaddons"
   New-Item -ItemType Directory -Force -Path $JsDir | Out-Null
   $AddinVersion = $VersionInfo.version
   Get-ChildItem -Path $JsDir -Directory -Filter "wps-read-aloud_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
   Get-ChildItem -Path $JsDir -Directory -Filter "$AddinDisplayName`_*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-  $Target = Join-Path $JsDir ($AddinInternalName + "_" + $AddinVersion)
+  $Target = Join-Path $JsDir ($AddinDisplayName + "_" + $AddinVersion)
   New-Item -ItemType Directory -Force -Path $Target | Out-Null
   Copy-Item -Path (Join-Path $InstallDir "addin\*") -Destination $Target -Recurse -Force
   Write-WindowsRuntimeConfig -Path (Join-Path $Target "assets\runtime-config.js") -Root $InstallDir -Launcher $Launcher -Daemon $Daemon -Config (Join-Path $InstallDir "config.yaml")
@@ -610,43 +698,26 @@ try {
   $PublishXml = Join-Path $JsDir "publish.xml"
   $PluginsXml = Join-Path $JsDir "jsplugins.xml"
   $KnownNames = @($AddinInternalName, $AddinDisplayName, "WPS 文档朗读助手", "wps-read-aloud-comate", "wps-read-aloud-xc", "wps-read-aloud-zhangjingyao")
-  $AddinRootUrl = "http://127.0.0.1:19860/addin/"
-  $RibbonUrl = "http://127.0.0.1:19860/addin/ribbon.xml"
-  $PublishEntry = @"
-<jspluginonline name="$AddinDisplayName" type="wps" enable="enable_dev" install="$AddinRootUrl" url="$AddinRootUrl" desc="$AddinDescription"/>
-"@
-  $LocalEntry = @"
-<jsplugin name="$AddinDisplayName" type="wps" enable="enable_dev" url="$AddinRootUrl" version="$AddinVersion" desc="$AddinDescription">
-    <ribbon file="$RibbonUrl"/>
-  </jsplugin>
-"@
-  Set-WpsPluginEntry -Path $PublishXml -Entry $PublishEntry -Names $KnownNames
-  Set-WpsPluginEntry -Path $PluginsXml -Entry $LocalEntry -Names $KnownNames
-  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath "http://127.0.0.1:19860/addin"
-  Clear-WpsJsAddinBlockHost -JsDir $JsDir
+  Remove-WpsPluginEntry -Path $PublishXml -Names $KnownNames
+  $OfflinePackageUrl = (ConvertTo-FileUri -Path (Join-Path $InstallDir "$AddinDisplayName`_$AddinVersion.7z"))
+  $OfflineEntry = '<jsplugin name="' + (Escape-XmlAttribute $AddinDisplayName) + '" type="wps" version="' + (Escape-XmlAttribute $AddinVersion) + '" url="' + (Escape-XmlAttribute $OfflinePackageUrl) + '" desc="' + (Escape-XmlAttribute $AddinDescription) + '"/>'
+  Set-WpsPluginEntry -Path $PluginsXml -Entry $OfflineEntry -Names $KnownNames
   try {
-    $Healthy = $false
-    try {
-      $Response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:19860/health" -TimeoutSec 2
-      $Healthy = ($Response.StatusCode -ge 200 -and $Response.StatusCode -lt 500)
-    }
-    catch {
-      $Healthy = $false
-    }
-    if (!$Healthy) {
-      Start-Process -FilePath $Daemon -ArgumentList @("-config", (Join-Path $InstallDir "config.yaml")) -WorkingDirectory $InstallDir -WindowStyle Hidden
-      Write-Host "已启动本地朗读服务，供 WPS 重新打开后加载“文档朗读”选项卡。"
-    }
+    Set-WpsOemOfflineConfig -WpsInfo $WpsInfo -PluginsXml $PluginsXml
   }
   catch {
-    Write-Host "本地朗读服务启动失败，WPS 打开后可通过开始菜单重新运行安装程序修复：$($_.Exception.Message)"
+    throw "写入 WPS OEM 配置失败。publish 离线模式需要修改 WPS 安装目录下的 office6\cfgs\oem.ini；请关闭 WPS 后右键以管理员身份运行安装程序。详细原因：$($_.Exception.Message)"
   }
+  Set-WpsAuthAddinEntryAllowed -Path (Join-Path $JsDir "authaddin.json") -Names $KnownNames -AddinName $AddinDisplayName -AddinPath (ConvertTo-FileUri -Path $Target)
+  Clear-WpsJsAddinBlockHost -JsDir $JsDir
+  Write-InstallState -Root $InstallDir -WpsInfo $WpsInfo -PluginsXml $PluginsXml
+  Write-Host "已安装 publish 离线模式加载项目录：$Target"
   Write-InstallProgress -Percent 86 -Action "注册卸载入口" -Detail "正在写入开始菜单和控制面板卸载信息"
   New-UninstallShortcut -Root $InstallDir
   Register-UninstallEntry -Root $InstallDir -VersionInfo $VersionInfo
 
-  Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请彻底退出并重新打开 WPS"
-  Write-Host "WPS 文档朗读助手安装完成。若 WPS 已打开，请重启 WPS。"
+  Write-InstallProgress -Percent 100 -Action "安装完成" -Detail "请重启电脑后打开 WPS"
+  Write-Host "WPS 文档朗读助手安装完成。请重启电脑后打开 WPS，在顶部查看“文档朗读”选项卡。"
   Write-Host "安装日志：$LogFile"
 }
 catch {

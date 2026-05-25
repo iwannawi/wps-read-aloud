@@ -103,6 +103,10 @@ try {
       Start-Sleep -Milliseconds 500
     }
     Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/read/stop" -Method POST -TimeoutSec 5 | Out-Null
+    $postStopHealth = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/health" -TimeoutSec 5
+    if ($postStopHealth.StatusCode -lt 200 -or $postStopHealth.StatusCode -ge 500) {
+      throw "Windows add-in host became unavailable after /read/stop at rate ${rate}."
+    }
     if (!$reached) {
       throw "Read did not reach playable state at rate ${rate}: $last"
     }

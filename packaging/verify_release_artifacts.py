@@ -162,10 +162,18 @@ def check_windows_package(target: dict, artifact: Path) -> None:
             fail(f"Windows installer still contains startup registration function: {artifact.name}")
         if "Wait-LocalServiceHealthy" in install_script:
             fail(f"Windows installer still waits for a daemon started during install: {artifact.name}")
-        if "http://127.0.0.1:19860/addin/" not in install_script:
-            fail(f"Windows installer does not register the verified HTTP add-in root: {artifact.name}")
+        if "Set-WpsOemOfflineConfig" not in install_script or "JSPluginsServer" not in install_script:
+            fail(f"Windows installer does not configure WPS OEM offline mode: {artifact.name}")
+        if "<jsplugin name=" not in install_script or "jspluginonline name=" in install_script:
+            fail(f"Windows installer is not using publish offline jsplugin mode: {artifact.name}")
+        if "disableFileCheckIntercept" not in install_script:
+            fail(f"Windows installer misses the offline mode file-check OEM switch: {artifact.name}")
         if "WPSReadAloudComate" not in uninstall_script or "Uninstall" not in install_script:
             fail(f"Windows uninstall integration is incomplete: {artifact.name}")
+        if "WPS文档朗读助手" not in install_script or "卸载 WPS文档朗读助手.lnk" not in install_script:
+            fail(f"Windows Start Menu uninstall shortcut is not in the required folder/name: {artifact.name}")
+        if "Remove-WpsOemConfig" not in uninstall_script:
+            fail(f"Windows uninstaller does not clean OEM offline mode config: {artifact.name}")
     if version.get("system") != "windows" or version.get("architecture") != "x86":
         fail(f"wrong version.json platform in {artifact.name}")
     if any(name.endswith(".service") or name.startswith("lib/systemd/") for name in names):

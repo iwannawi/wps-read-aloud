@@ -87,6 +87,33 @@ function Remove-WpsAuthEntry {
   }
 }
 
+function Remove-WpsOemConfig {
+  param([string]$Root)
+  $StatePath = Join-Path $Root "install-state.json"
+  if (!(Test-Path $StatePath)) {
+    return
+  }
+  try {
+    $State = Get-Content -Raw -Path $StatePath -Encoding UTF8 | ConvertFrom-Json
+    $OemPath = [string]$State.wpsOemIni
+    $Server = [string]$State.jsPluginsServer
+    if ([string]::IsNullOrWhiteSpace($OemPath) -or !(Test-Path $OemPath)) {
+      return
+    }
+    Backup-ConfigFile -Path $OemPath
+    $Lines = New-Object System.Collections.Generic.List[string]
+    foreach ($Line in (Get-Content -Path $OemPath -Encoding UTF8)) {
+      if ($Line -match '^\s*JSPluginsServer\s*=' -and ($Line -match [regex]::Escape($Server) -or $Line -match 'Kingsoft[\\/]+wps[\\/]+jsaddons[\\/]+jsplugins\.xml')) {
+        continue
+      }
+      $Lines.Add($Line)
+    }
+    Set-Content -Path $OemPath -Value ($Lines -join "`r`n") -Encoding UTF8
+  }
+  catch {
+  }
+}
+
 function Stop-DaemonProcess {
   param([string]$Root)
   if ([string]::IsNullOrWhiteSpace($Root) -or !(Test-Path $Root)) {
@@ -139,6 +166,7 @@ try {
     Remove-Item -LiteralPath (Join-Path $JsDir "jsaddinblockhost.ini") -Force -ErrorAction SilentlyContinue
   }
 
+  Remove-WpsOemConfig -Root $InstallDir
   Remove-Item -LiteralPath (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS 文档朗读助手") -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\WPS文档朗读助手") -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WPSReadAloudComate" -Recurse -Force -ErrorAction SilentlyContinue
