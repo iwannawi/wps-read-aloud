@@ -49,6 +49,7 @@
 - 升级时不要清理已允许的 authaddin.json 授权缓存；应保留并刷新本项目条目，避免每次升级后重复弹出许可确认。
 - 只清理本项目相关的阻止缓存和重复 publish/jsplugins 条目；不处理其他加载项的授权信息。
 - x86 Windows 10/11 启动 PowerShell 时优先使用 Sysnative，避免漏读 64 位注册表。
+- Windows 包验证脚本不要依赖 build/windows 中间目录。发布前清理 build 后，应直接从最终 exe 安装包提取 payload 再验证。
 
 ## Linux 安装
 
@@ -107,3 +108,5 @@
 - 仓库重命名后，常驻推送脚本仍可能被旧 HTTPS 凭据带偏并报 “Invalid username or token”。此时直接读取 gh auth token，禁用 credential.helper，并用临时 http.extraHeader 推送。
 - Release 发布优先使用 GitHub CLI；curl REST 路径返回 401 时不要反复重试。
 - Release 内容只写当前版本新增、变更、修复、安装包和 SHA256。
+- 删除旧 Release 时不要对不存在的标签直接执行删除。先用 gh release list 过滤实际存在的标签，再逐个删除。
+- 当前 GitHub CLI 的 gh release view 不支持 isLatest 字段。校验 Latest 状态使用 gh release list，校验资产完整性使用 gh release view 的 url、tagName、name 和 assets 字段。
