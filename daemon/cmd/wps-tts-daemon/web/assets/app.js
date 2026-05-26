@@ -1108,7 +1108,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.2.1" },
+        { label: "版本", value: "1.2.2" },
         { label: "发布日期", value: "2026/05/26" },
         { label: "开发者", value: "ZHANG JING YAO" },
         { label: "软件包", value: "wps-read-aloud-comate" },
@@ -1126,9 +1126,6 @@
   }
 
   function docUrl(name) {
-    if (RUNTIME.docsBaseUrl) {
-      return String(RUNTIME.docsBaseUrl).replace(/\/+$/, "") + "/" + name;
-    }
     return SERVICE_ORIGIN + "/docs/" + name;
   }
 

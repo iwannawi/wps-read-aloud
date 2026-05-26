@@ -2,7 +2,7 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.2.1
+版本：1.2.2
 开发者：ZHANG JING YAO
 发布时间：2026/05/26
 

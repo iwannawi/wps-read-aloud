@@ -527,7 +527,6 @@ function Write-WindowsRuntimeConfig {
     [string]$Daemon,
     [string]$Config
   )
-  $Docs = ConvertTo-FileUri -Path $Root
   $Payload = [ordered]@{
     platform = "windows"
     serviceOrigin = "http://127.0.0.1:19860"
@@ -535,7 +534,6 @@ function Write-WindowsRuntimeConfig {
     launcherPath = $Launcher
     daemonExe = $Daemon
     configPath = $Config
-    docsBaseUrl = $Docs.TrimEnd("/") + "/"
   } | ConvertTo-Json -Depth 5 -Compress
   $Content = "window.WPS_READ_ALOUD_RUNTIME = $Payload;`r`n"
   Set-Content -Path $Path -Value $Content -Encoding UTF8

@@ -65,6 +65,7 @@
 ## 前端与弹窗
 
 - Linux WPS ShowDialog 使用 http://127.0.0.1:19860/dialog.html 的绝对地址。Windows 本地加载项使用本地 dialog.html，避免为了弹窗启动本地服务。
+- 关于弹窗内的说明文件链接必须使用 http://127.0.0.1:19860/docs/ 下的服务端地址，不使用 file:/// 安装目录地址。WPS 内置浏览器从 http 弹窗页 fetch 本地 file 资源会报 Failed to fetch。
 - ShowDialog 失败后不要在 WPS 环境回退到 window.open，避免调起外部浏览器。
 - 启动小窗如出现滚动条，需要同时检查 html.compact 和 body.compact 的最小尺寸。
 - 部分 WPS 内置浏览器不支持 URLSearchParams，弹窗参数解析应使用兼容实现。
