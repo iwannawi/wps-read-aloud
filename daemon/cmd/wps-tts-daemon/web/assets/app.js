@@ -38,7 +38,7 @@
 
   function showDialog(options) {
     var payload = encodeURIComponent(toBase64(JSON.stringify(options || {})));
-    var url = dialogPageUrl() + "?payload=" + payload;
+    var url = dialogPageUrl(options) + "?payload=" + payload;
     var title = options && options.title ? options.title : "文档朗读";
     var width = options && options.width ? Number(options.width) : 880;
     var height = options && options.height ? Number(options.height) : 680;
@@ -115,9 +115,12 @@
     }
   }
 
-  function dialogPageUrl() {
+  function dialogPageUrl(options) {
     if (RUNTIME.dialogUrl) {
       return String(RUNTIME.dialogUrl);
+    }
+    if (options && options.links && options.links.length) {
+      return SERVICE_ORIGIN + "/dialog.html";
     }
     if (isLocalAddinPage()) {
       return makeAbsoluteUrl("dialog.html");
@@ -1105,7 +1108,7 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.2.0" },
+        { label: "版本", value: "1.2.1" },
         { label: "发布日期", value: "2026/05/26" },
         { label: "开发者", value: "ZHANG JING YAO" },
         { label: "软件包", value: "wps-read-aloud-comate" },
