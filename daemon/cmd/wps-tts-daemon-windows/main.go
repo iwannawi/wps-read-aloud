@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -748,24 +749,30 @@ func (s *Server) play(ctx context.Context, wav string, pausedFn func() bool) err
 		return err
 	}
 	deadline := time.Now().Add(duration + 120*time.Millisecond)
+	pausedAt := time.Time{}
+	var pauseAccum time.Duration
 	for {
 		if ctx.Err() != nil {
 			stopWavPlayback()
 			return ctx.Err()
 		}
 		if pausedFn != nil && pausedFn() {
-			stopWavPlayback()
-			for pausedFn() {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				time.Sleep(80 * time.Millisecond)
+			if pausedAt.IsZero() {
+				pausedAt = time.Now()
 			}
+			stopWavPlayback()
+			time.Sleep(80 * time.Millisecond)
+			continue
+		}
+		if !pausedAt.IsZero() {
+			pauseAccum += time.Since(pausedAt)
+			pausedAt = time.Time{}
 			if err := playWavAsync(wav); err != nil {
 				return err
 			}
 		}
-		if time.Now().After(deadline) {
+		adjustedDeadline := deadline.Add(pauseAccum)
+		if time.Now().After(adjustedDeadline) {
 			return nil
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -1599,8 +1606,12 @@ func checkOrigin(raw, serviceOrigin string) (bool, string) {
 	if raw == serviceOrigin {
 		return true, raw
 	}
-	lower := strings.ToLower(raw)
-	if strings.HasPrefix(lower, "http://127.0.0.1") || strings.HasPrefix(lower, "https://127.0.0.1") {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return false, ""
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "127.0.0.1" || host == "localhost" || host == "[::1]" || host == "::1" {
 		return true, raw
 	}
 	return false, ""

@@ -1,6 +1,47 @@
 (function () {
   "use strict";
 
+  // Register ribbon callbacks FIRST so WPS can always find them,
+  // even if later code throws during addin initialization.
+  var _fns = {};
+  function _call(name, a, b) { return _fns[name] ? _fns[name](a, b) : undefined; }
+  window.ribbon = {
+    OnAddinLoad: function (ui) { return _call("OnAddinLoad", ui); },
+    OnAction: function (c) { return _call("OnAction", c); },
+    GetImage: function (c) { return _call("GetImage", c); },
+    OnGetImage: function (c) { return _call("GetImage", c); },
+    GetPressed: function (c) { return _call("GetPressed", c); },
+    OnGetPressed: function (c) { return _call("GetPressed", c); },
+    GetEnabled: function (c) { return _call("GetEnabled", c); },
+    OnGetEnabled: function (c) { return _call("GetEnabled", c); },
+    GetLabel: function (c) { return _call("GetLabel", c); },
+    OnGetLabel: function (c) { return _call("GetLabel", c); },
+    OnStartSpeak: function () { return _call("OnStartSpeak"); },
+    OnStopSpeak: function () { return _call("OnStopSpeak"); },
+    OnCheckStatus: function () { return _call("OnCheckStatus"); },
+    OnAbout: function () { return _call("OnAbout"); }
+  };
+  window.GetImage = window.ribbon.GetImage;
+  window.OnGetImage = window.ribbon.OnGetImage;
+  window.GetPressed = window.ribbon.GetPressed;
+  window.OnGetPressed = window.ribbon.OnGetPressed;
+  window.GetEnabled = window.ribbon.GetEnabled;
+  window.OnGetEnabled = window.ribbon.OnGetEnabled;
+  window.GetLabel = window.ribbon.GetLabel;
+  window.OnGetLabel = window.ribbon.OnGetLabel;
+  window.OnAction = window.ribbon.OnAction;
+  window.onAction = window.ribbon.OnAction;
+  window.OnAddinLoad = window.ribbon.OnAddinLoad;
+  window.onAddinLoad = window.ribbon.OnAddinLoad;
+  window.onStartSpeak = function () { return _call("OnStartSpeak"); };
+  window.onStopSpeak = function () { return _call("OnStopSpeak"); };
+  window.onCheckStatus = function () { return _call("OnCheckStatus"); };
+  window.onAbout = function () { return _call("OnAbout"); };
+  window.onGetImage = window.ribbon.GetImage;
+  window.onGetPressed = window.ribbon.GetPressed;
+  window.onGetEnabled = window.ribbon.GetEnabled;
+  window.onGetLabel = window.ribbon.GetLabel;
+
   var RUNTIME = window.WPS_READ_ALOUD_RUNTIME || {};
   var SERVICE_ORIGIN = String(RUNTIME.serviceOrigin || "http://127.0.0.1:19860").replace(/\/+$/, "");
   var SERVICE_BASE = SERVICE_ORIGIN;
@@ -171,7 +212,10 @@
     if (typeof control === "string") {
       return control;
     }
-    return (control && (control.Id || control.id || control.ID)) || "";
+    if (control && typeof control === "object") {
+      return (control.Id || control.id || control.ID || "") + "";
+    }
+    return "";
   }
 
   function onGetImage(control) {
@@ -1178,40 +1222,15 @@
     status("文档朗读加载项已初始化。");
   }
 
-  window.onStartSpeak = onStartSpeak;
-  window.onStopSpeak = onStopSpeak;
-  window.onAction = onRibbonAction;
-  window.OnAction = onRibbonAction;
-  window.onAddinLoad = onAddinLoad;
-  window.OnAddinLoad = onAddinLoad;
-  window.GetImage = onGetImage;
-  window.OnGetImage = onGetImage;
-  window.GetPressed = onGetPressed;
-  window.OnGetPressed = onGetPressed;
-  window.GetEnabled = onGetEnabled;
-  window.OnGetEnabled = onGetEnabled;
-  window.GetLabel = onGetLabel;
-  window.OnGetLabel = onGetLabel;
-  window.ribbon = {
-    OnAddinLoad: onAddinLoad,
-    OnAction: onRibbonAction,
-    GetImage: onGetImage,
-    OnGetImage: onGetImage,
-    GetPressed: onGetPressed,
-    OnGetPressed: onGetPressed,
-    GetEnabled: onGetEnabled,
-    OnGetEnabled: onGetEnabled,
-    GetLabel: onGetLabel,
-    OnGetLabel: onGetLabel,
-    OnStartSpeak: onStartSpeak,
-    OnStopSpeak: onStopSpeak,
-    OnCheckStatus: onCheckStatus,
-    OnAbout: onAbout
-  };
-  window.onCheckStatus = onCheckStatus;
-  window.onAbout = onAbout;
-  window.onGetImage = onGetImage;
-  window.onGetPressed = onGetPressed;
-  window.onGetEnabled = onGetEnabled;
-  window.onGetLabel = onGetLabel;
+  // Wire up real implementations to the lazy callback bridge.
+  _fns.OnAddinLoad = onAddinLoad;
+  _fns.OnAction = onRibbonAction;
+  _fns.GetImage = onGetImage;
+  _fns.GetPressed = onGetPressed;
+  _fns.GetEnabled = onGetEnabled;
+  _fns.GetLabel = onGetLabel;
+  _fns.OnStartSpeak = onStartSpeak;
+  _fns.OnStopSpeak = onStopSpeak;
+  _fns.OnCheckStatus = onCheckStatus;
+  _fns.OnAbout = onAbout;
 })();

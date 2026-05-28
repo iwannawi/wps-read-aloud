@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2241,8 +2242,12 @@ func checkOrigin(raw, serviceOrigin string) (bool, string) {
 	if raw == serviceOrigin {
 		return true, raw
 	}
-	lower := strings.ToLower(raw)
-	if strings.HasPrefix(lower, "http://127.0.0.1") || strings.HasPrefix(lower, "https://127.0.0.1") {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return false, ""
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "127.0.0.1" || host == "localhost" || host == "[::1]" || host == "::1" {
 		return true, raw
 	}
 	return false, ""

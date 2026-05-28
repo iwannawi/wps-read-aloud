@@ -37,6 +37,11 @@ def load_version():
     return data.get("version", "0.0.0")
 
 
+def load_release_date():
+    data = json.loads(MATRIX.read_text(encoding="utf-8"))
+    return data.get("release_date", "")
+
+
 def run(cmd, env=None):
     print("+", " ".join(str(item) for item in cmd))
     subprocess.run(cmd, cwd=ROOT, env=env, check=True)
@@ -86,17 +91,18 @@ def artifact_path(target):
     return DIST / target["artifact"]
 
 
-def build_linux(target, version):
+def build_linux(target, version, release_date):
     build_linux_daemon(target["arch"])
     env = os.environ.copy()
     env["DISTRO"] = target["distro"]
     env["ARCH"] = target["arch"]
     env["VERSION"] = version
+    env["RELEASE_DATE"] = release_date
     run([PYTHON, "packaging/deb/build_deb.py"], env=env)
     write_sha256(artifact_path(target))
 
 
-def build_windows(target, version):
+def build_windows(target, version, release_date):
     arch_label = "x86" if target["arch"] in {"386", "x86"} else target["arch"]
     daemon = DIST / f"wps-tts-daemon-windows-{arch_label}.exe"
     if not daemon.exists():
@@ -119,6 +125,7 @@ def build_windows(target, version):
     env = os.environ.copy()
     env["WINDOWS_ARCH"] = target["arch"]
     env["VERSION"] = version
+    env["RELEASE_DATE"] = release_date
     run([PYTHON, "packaging/windows/build_windows_package.py"], env=env)
     write_sha256(artifact_path(target))
 
@@ -197,6 +204,7 @@ def main():
 
     targets = load_targets()
     version = load_version()
+    release_date = load_release_date()
     if args.list:
         for target in targets:
             print(f"{target['id']}: {target['artifact']}")
@@ -217,9 +225,9 @@ def main():
         if target["id"] not in selected:
             continue
         if target["os"] == "linux":
-            build_linux(target, version)
+            build_linux(target, version, release_date)
         elif target["os"] == "windows":
-            build_windows(target, version)
+            build_windows(target, version, release_date)
         else:
             raise SystemExit("unsupported target os: " + target["os"])
     validate_artifacts(selected_targets)
