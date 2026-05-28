@@ -71,12 +71,14 @@ type Session struct {
 	sentences []ReadSentence
 	rate      float64
 
-	mu      sync.Mutex
-	state   string
-	message string
-	index   int
-	total   int
-	cache   map[int]*audioCacheEntry
+	mu        sync.Mutex
+	state     string
+	message   string
+	index     int
+	total     int
+	cache     map[int]*audioCacheEntry
+	paused    bool
+	lastError string
 }
 
 type audioCacheEntry struct {
@@ -122,14 +124,19 @@ func main() {
 	mux.HandleFunc("/health", server.health)
 	mux.HandleFunc("/selftest", server.selftest)
 	mux.HandleFunc("/read/start", server.readStart)
+	mux.HandleFunc("/read/settings", server.readSettings)
 	mux.HandleFunc("/read/status", server.readStatus)
 	mux.HandleFunc("/read/stop", server.stop)
+	mux.HandleFunc("/read/pause", server.pause)
+	mux.HandleFunc("/read/resume", server.resume)
 	mux.HandleFunc("/stop", server.stop)
+	mux.HandleFunc("/pause", server.pause)
+	mux.HandleFunc("/resume", server.resume)
 	mux.HandleFunc("/shutdown", server.shutdown)
 	mux.HandleFunc("/audio/probe", server.audioProbe)
 	mux.HandleFunc("/docs/", server.docs)
 	mux.HandleFunc("/", server.web)
-	httpSrv := &http.Server{Addr: cfg.Listen, Handler: cors(mux)}
+	httpSrv := &http.Server{Addr: cfg.Listen, Handler: cors(mux, cfg.Listen), ReadHeaderTimeout: 5 * time.Second}
 	server.httpSrv = httpSrv
 	log.Printf("wps-tts-daemon-windows listening on http://%s", cfg.Listen)
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -177,6 +184,10 @@ func abs(root, path string) string {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	engine := "none"
 	if fileExists(s.cfg.Sherpa.Bin) && fileExists(s.cfg.Sherpa.VitsModel) && fileExists(s.cfg.Sherpa.VitsLexicon) && fileExists(s.cfg.Sherpa.VitsTokens) {
 		engine = "sherpa-onnx"
@@ -290,6 +301,10 @@ func (s *Server) readStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	s.mu.Lock()
 	session := s.session
 	s.mu.Unlock()
@@ -359,6 +374,73 @@ func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) readSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req struct {
+		Rate float64 `json:"rate"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "请求格式不正确。")
+		return
+	}
+	s.mu.Lock()
+	session := s.session
+	s.mu.Unlock()
+	if session == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "idle"})
+		return
+	}
+	session.updateSettings(req.Rate)
+	writeJSON(w, http.StatusOK, session.status())
+}
+
+func (ss *Session) updateSettings(rate float64) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	if rate <= 0 {
+		return
+	}
+	rate = clampRate(rate)
+	ss.rate = rate
+	ss.message = "语速已切换为 " + fmt.Sprintf("%.1fx", rate) + "，将在下一句生效"
+}
+
+func (s *Server) pause(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	s.mu.Lock()
+	session := s.session
+	s.mu.Unlock()
+	if session == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "idle"})
+		return
+	}
+	session.setPaused(true)
+	stopWavPlayback()
+	writeJSON(w, http.StatusOK, map[string]any{"status": "paused"})
+}
+
+func (s *Server) resume(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	s.mu.Lock()
+	session := s.session
+	s.mu.Unlock()
+	if session == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "idle"})
+		return
+	}
+	session.setPaused(false)
+	writeJSON(w, http.StatusOK, map[string]any{"status": "resumed"})
+}
+
 func (s *Server) stopLocked() {
 	if s.session != nil {
 		s.session.cancel()
@@ -401,7 +483,7 @@ func (ss *Session) run() {
 			ss.setState("stopped", "朗读已停止", -1)
 			return
 		}
-		ss.setState("error", friendlyErrorAt(err, 0), 0)
+		ss.fail(err)
 		return
 	}
 	for i := range ss.sentences {
@@ -416,16 +498,16 @@ func (ss *Session) run() {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
-				ss.setState("error", friendlyErrorAt(err, i), i)
+				ss.fail(err)
 			}
 			return
 		}
 		ss.setState("playing", "正在朗读第 "+strconv.Itoa(i+1)+" 句", i)
-		if err := ss.server.play(ss.ctx, entry.path); err != nil {
+		if err := ss.server.play(ss.ctx, entry.path, ss.isPaused); err != nil {
 			if ss.ctx.Err() != nil {
 				ss.setState("stopped", "朗读已停止", i)
 			} else {
-				ss.setState("error", friendlyErrorAt(err, i), i)
+				ss.fail(err)
 			}
 			return
 		}
@@ -536,10 +618,47 @@ func (ss *Session) setState(state, message string, index int) {
 	ss.mu.Unlock()
 }
 
+func (ss *Session) isPaused() bool {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	return ss.paused
+}
+
+func (ss *Session) setPaused(paused bool) {
+	ss.mu.Lock()
+	if paused {
+		ss.paused = true
+		ss.state = "paused"
+		ss.message = "朗读已暂停"
+	} else if ss.paused {
+		ss.paused = false
+		ss.state = "playing"
+		ss.message = "朗读已继续"
+	}
+	ss.mu.Unlock()
+}
+
+func (ss *Session) fail(err error) {
+	ss.mu.Lock()
+	ss.state = "error"
+	ss.lastError = friendlyError(err)
+	ss.message = friendlyErrorAt(err, ss.index)
+	ss.mu.Unlock()
+	log.Printf("read session %s failed: %v", ss.id, err)
+}
+
 func (ss *Session) status() map[string]any {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	return map[string]any{"id": ss.id, "state": ss.state, "message": ss.message, "current_index": ss.index, "total": ss.total}
+	return map[string]any{
+		"id":            ss.id,
+		"state":         ss.state,
+		"message":       ss.message,
+		"current_index": ss.index,
+		"total":         ss.total,
+		"rate":          ss.rate,
+		"error":         ss.lastError,
+	}
 }
 
 func (s *Server) synthesize(ctx context.Context, text string, rate float64) (string, error) {
@@ -620,7 +739,7 @@ func (s *Server) runSherpa(ctx context.Context, outputPath string, text string, 
 	return fmt.Errorf("sherpa-onnx failed: %w", err)
 }
 
-func (s *Server) play(ctx context.Context, wav string) error {
+func (s *Server) play(ctx context.Context, wav string, pausedFn func() bool) error {
 	duration, err := wavDuration(wav)
 	if err != nil {
 		return err
@@ -628,14 +747,28 @@ func (s *Server) play(ctx context.Context, wav string) error {
 	if err := playWavAsync(wav); err != nil {
 		return err
 	}
-	timer := time.NewTimer(duration + 120*time.Millisecond)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		stopWavPlayback()
-		return ctx.Err()
-	case <-timer.C:
-		return nil
+	deadline := time.Now().Add(duration + 120*time.Millisecond)
+	for {
+		if ctx.Err() != nil {
+			stopWavPlayback()
+			return ctx.Err()
+		}
+		if pausedFn != nil && pausedFn() {
+			stopWavPlayback()
+			for pausedFn() {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				time.Sleep(80 * time.Millisecond)
+			}
+			if err := playWavAsync(wav); err != nil {
+				return err
+			}
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -995,10 +1128,11 @@ func normalizeTtsPunctuationSpacing(text string, rate float64) string {
 	for _, r := range text {
 		switch {
 		case isSemanticPausePunctuation(r):
-			for len(out) > 0 && unicode.IsSpace(out[len(out)-1]) {
-				out = out[:len(out)-1]
-			}
-			out = append(out, r, ' ')
+			trimTrailingSpaces(&out)
+			out = append(out, r)
+			out = append(out, punctuationPauseRunes(rate)...)
+		case isPairedBoundaryPunctuation(r):
+			out = append(out, r)
 		case unicode.IsSpace(r):
 			if len(out) > 0 && out[len(out)-1] != ' ' {
 				out = append(out, ' ')
@@ -1008,6 +1142,32 @@ func normalizeTtsPunctuationSpacing(text string, rate float64) string {
 		}
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func standardPauseMs(rate float64) int {
+	return scaledPauseMs(standardPauseMsAtBaseRate, rate)
+}
+
+func punctuationPauseRunes(rate float64) []rune {
+	pauseMs := standardPauseMs(rate)
+	count := (pauseMs + 399) / 400
+	if count < 1 {
+		count = 1
+	}
+	if count > 3 {
+		count = 3
+	}
+	out := make([]rune, count)
+	for i := range out {
+		out[i] = ' '
+	}
+	return out
+}
+
+func trimTrailingSpaces(runes *[]rune) {
+	for len(*runes) > 0 && unicode.IsSpace((*runes)[len(*runes)-1]) {
+		*runes = (*runes)[:len(*runes)-1]
+	}
 }
 
 func isSemanticPausePunctuation(r rune) bool {
@@ -1052,7 +1212,11 @@ func asciiCharSpeech(r rune) string {
 		return "九"
 	case '.':
 		return "点"
+	case '。':
+		return "点"
 	case '-':
+		return "杠"
+	case '－':
 		return "杠"
 	case '_':
 		return "下划线"
@@ -1300,7 +1464,7 @@ func friendlyError(err error) string {
 func friendlyErrorAt(err error, index int) string {
 	message := friendlyError(err)
 	if index >= 0 {
-		message = "第 " + strconv.Itoa(index+1) + " 句" + message
+		message = "第 " + strconv.Itoa(index+1) + " 句：" + message
 	}
 	detail := compactErrorDetail(err.Error())
 	if detail != "" {
@@ -1356,9 +1520,6 @@ func cleanText(text string) string {
 }
 
 func clampRate(rate float64) float64 {
-	if rate <= 0 {
-		return 1.2
-	}
 	if rate < 0.5 {
 		return 0.5
 	}
@@ -1401,17 +1562,48 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]any{"error": message})
 }
 
-func cors(next http.Handler) http.Handler {
+func cors(next http.Handler, listen string) http.Handler {
+	origin := "http://" + listen
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		reqOrigin := r.Header.Get("Origin")
+		ok, header := checkOrigin(reqOrigin, origin)
+		if !ok {
+			if reqOrigin != "" {
+				if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+			}
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", header)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func checkOrigin(raw, serviceOrigin string) (bool, string) {
+	if raw == "" {
+		return true, ""
+	}
+	if raw == serviceOrigin {
+		return true, raw
+	}
+	lower := strings.ToLower(raw)
+	if strings.HasPrefix(lower, "http://127.0.0.1") || strings.HasPrefix(lower, "https://127.0.0.1") {
+		return true, raw
+	}
+	return false, ""
 }
 
 func loadSimpleYAML(path string, cfg *Config) error {

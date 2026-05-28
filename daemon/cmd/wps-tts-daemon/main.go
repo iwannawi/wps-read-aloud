@@ -223,7 +223,7 @@ func main() {
 
 	httpServer := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           cors(mux),
+		Handler:           cors(mux, cfg.Listen),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -250,6 +250,10 @@ func defaultConfig() Config {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	engine := detectEngine(s.cfg)
 	probe := loadAudioProbe()
 	players := prioritizedAudioPlayers("")
@@ -522,6 +526,10 @@ func (s *Server) readSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	s.mu.Lock()
 	session := s.session
 	s.mu.Unlock()
@@ -2196,17 +2204,48 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]any{"error": message})
 }
 
-func cors(next http.Handler) http.Handler {
+func cors(next http.Handler, listen string) http.Handler {
+	origin := "http://" + listen
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		reqOrigin := r.Header.Get("Origin")
+		ok, header := checkOrigin(reqOrigin, origin)
+		if !ok {
+			if reqOrigin != "" {
+				if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+			}
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", header)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func checkOrigin(raw, serviceOrigin string) (bool, string) {
+	if raw == "" {
+		return true, ""
+	}
+	if raw == serviceOrigin {
+		return true, raw
+	}
+	lower := strings.ToLower(raw)
+	if strings.HasPrefix(lower, "http://127.0.0.1") || strings.HasPrefix(lower, "https://127.0.0.1") {
+		return true, raw
+	}
+	return false, ""
 }
 
 func loadSimpleYAML(path string, cfg *Config) error {
