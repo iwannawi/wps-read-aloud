@@ -119,12 +119,15 @@
     }
   }
 
+  var statusPollTimer = null;
+
   function closeWhenPlaybackStarts(startupId, serviceOrigin) {
     var openedAt = Date.now();
     var statusUrl = (serviceOrigin || "").replace(/\/+$/, "") + "/read/status";
-    setInterval(function () {
+    statusPollTimer = setInterval(function () {
       try {
         if (startupId && localStorage.getItem("wpsReadAloudCloseStartup") === startupId) {
+          if (statusPollTimer !== null) { clearInterval(statusPollTimer); statusPollTimer = null; }
           window.close();
           return;
         }
@@ -138,9 +141,11 @@
             return;
           }
           if (data.state === "playing" || data.state === "done" || data.state === "stopped" || data.state === "error") {
+            if (statusPollTimer !== null) { clearInterval(statusPollTimer); statusPollTimer = null; }
             window.close();
           }
           if (data.state === "idle" && Date.now() - openedAt > 1000) {
+            if (statusPollTimer !== null) { clearInterval(statusPollTimer); statusPollTimer = null; }
             window.close();
           }
         })
@@ -186,4 +191,10 @@
   }
 
   render();
+  window.addEventListener("beforeunload", function () {
+    if (statusPollTimer !== null) {
+      clearInterval(statusPollTimer);
+      statusPollTimer = null;
+    }
+  });
 })();

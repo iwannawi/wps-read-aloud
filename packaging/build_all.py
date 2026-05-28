@@ -32,6 +32,11 @@ def load_targets():
     return data["targets"]
 
 
+def load_version():
+    data = json.loads(MATRIX.read_text(encoding="utf-8"))
+    return data.get("version", "0.0.0")
+
+
 def run(cmd, env=None):
     print("+", " ".join(str(item) for item in cmd))
     subprocess.run(cmd, cwd=ROOT, env=env, check=True)
@@ -81,16 +86,17 @@ def artifact_path(target):
     return DIST / target["artifact"]
 
 
-def build_linux(target):
+def build_linux(target, version):
     build_linux_daemon(target["arch"])
     env = os.environ.copy()
     env["DISTRO"] = target["distro"]
     env["ARCH"] = target["arch"]
+    env["VERSION"] = version
     run([PYTHON, "packaging/deb/build_deb.py"], env=env)
     write_sha256(artifact_path(target))
 
 
-def build_windows(target):
+def build_windows(target, version):
     arch_label = "x86" if target["arch"] in {"386", "x86"} else target["arch"]
     daemon = DIST / f"wps-tts-daemon-windows-{arch_label}.exe"
     if not daemon.exists():
@@ -112,6 +118,7 @@ def build_windows(target):
         )
     env = os.environ.copy()
     env["WINDOWS_ARCH"] = target["arch"]
+    env["VERSION"] = version
     run([PYTHON, "packaging/windows/build_windows_package.py"], env=env)
     write_sha256(artifact_path(target))
 
@@ -189,6 +196,7 @@ def main():
     args = parser.parse_args()
 
     targets = load_targets()
+    version = load_version()
     if args.list:
         for target in targets:
             print(f"{target['id']}: {target['artifact']}")
@@ -209,9 +217,9 @@ def main():
         if target["id"] not in selected:
             continue
         if target["os"] == "linux":
-            build_linux(target)
+            build_linux(target, version)
         elif target["os"] == "windows":
-            build_windows(target)
+            build_windows(target, version)
         else:
             raise SystemExit("unsupported target os: " + target["os"])
     validate_artifacts(selected_targets)
