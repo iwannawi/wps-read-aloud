@@ -364,6 +364,10 @@ func (s *Server) web(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
 	name := filepath.Base(r.URL.Path)
 	switch name {
 	case "THIRD_PARTY_NOTICES.md":

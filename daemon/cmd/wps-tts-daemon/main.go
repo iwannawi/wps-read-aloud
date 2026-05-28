@@ -364,6 +364,10 @@ func diskIconPath(requestPath string) string {
 }
 
 func (s *Server) docs(w http.ResponseWriter, r *http.Request) {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
 	name := filepath.Base(r.URL.Path)
 	allowed := map[string]bool{
 		"RELEASE_NOTES.md":         true,

@@ -12,6 +12,18 @@
     OnGetImage: function (c) { return _call("GetImage", c); },
     GetPressed: function (c) { return _call("GetPressed", c); },
     OnGetPressed: function (c) { return _call("GetPressed", c); },
+    IsModeContinuous: function () { return _call("IsModeContinuous"); },
+    IsModePage: function () { return _call("IsModePage"); },
+    IsRate075: function () { return _call("IsRate075"); },
+    IsRate10: function () { return _call("IsRate10"); },
+    IsRate12: function () { return _call("IsRate12"); },
+    IsRate15: function () { return _call("IsRate15"); },
+    OnModeContinuous: function () { return _call("OnModeContinuous"); },
+    OnModePage: function () { return _call("OnModePage"); },
+    OnRate075: function () { return _call("OnRate075"); },
+    OnRate10: function () { return _call("OnRate10"); },
+    OnRate12: function () { return _call("OnRate12"); },
+    OnRate15: function () { return _call("OnRate15"); },
     GetEnabled: function (c) { return _call("GetEnabled", c); },
     OnGetEnabled: function (c) { return _call("GetEnabled", c); },
     GetLabel: function (c) { return _call("GetLabel", c); },
@@ -39,6 +51,18 @@
   window.onAbout = function () { return _call("OnAbout"); };
   window.onGetImage = window.ribbon.GetImage;
   window.onGetPressed = window.ribbon.GetPressed;
+  window.isModeContinuous = window.ribbon.IsModeContinuous;
+  window.isModePage = window.ribbon.IsModePage;
+  window.isRate075 = window.ribbon.IsRate075;
+  window.isRate10 = window.ribbon.IsRate10;
+  window.isRate12 = window.ribbon.IsRate12;
+  window.isRate15 = window.ribbon.IsRate15;
+  window.onModeContinuous = window.ribbon.OnModeContinuous;
+  window.onModePage = window.ribbon.OnModePage;
+  window.onRate075 = window.ribbon.OnRate075;
+  window.onRate10 = window.ribbon.OnRate10;
+  window.onRate12 = window.ribbon.OnRate12;
+  window.onRate15 = window.ribbon.OnRate15;
   window.onGetEnabled = window.ribbon.GetEnabled;
   window.onGetLabel = window.ribbon.GetLabel;
 
@@ -1041,6 +1065,9 @@
 
   function onGetPressed(control) {
     var id = controlId(control);
+    if (!id) {
+      return false;
+    }
     if (id === "modeContinuousItem") {
       return readMode === "continuous";
     }
@@ -1051,6 +1078,18 @@
       return rateIdForValue(rate) === id;
     }
     return false;
+  }
+
+  function isModeContinuous() {
+    return readMode === "continuous";
+  }
+
+  function isModePage() {
+    return readMode === "page";
+  }
+
+  function isRateId(id) {
+    return rateIdForValue(rate) === id;
   }
 
   function onGetEnabled(control) {
@@ -1152,8 +1191,8 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.2.3" },
-        { label: "发布日期", value: "2026/05/28" },
+        { label: "版本", value: "1.2.4" },
+        { label: "发布日期", value: "2026/05/29" },
         { label: "开发者", value: "ZHANG JING YAO" },
         { label: "软件包", value: "wps-read-aloud-comate" },
         { label: "支持系统", value: "x86/x64 Windows 10/11；x64 银河麒麟系统；ARM64 银河麒麟系统；x64 UOS系统；ARM64 UOS系统" },
@@ -1217,6 +1256,30 @@
     notify("未识别的文档朗读按钮：" + (id || "未知按钮") + "。");
   }
 
+  function onModeContinuous() {
+    setReadMode("continuous");
+  }
+
+  function onModePage() {
+    setReadMode("page");
+  }
+
+  function onRate075() {
+    setRateById("rate075");
+  }
+
+  function onRate10() {
+    setRateById("rate10");
+  }
+
+  function onRate12() {
+    setRateById("rate12");
+  }
+
+  function onRate15() {
+    setRateById("rate15");
+  }
+
   function onAddinLoad(ribbonUI) {
     window.__wpsReadAloudRibbon = ribbonUI || null;
     status("文档朗读加载项已初始化。");
@@ -1227,6 +1290,18 @@
   _fns.OnAction = onRibbonAction;
   _fns.GetImage = onGetImage;
   _fns.GetPressed = onGetPressed;
+  _fns.IsModeContinuous = isModeContinuous;
+  _fns.IsModePage = isModePage;
+  _fns.IsRate075 = function () { return isRateId("rate075"); };
+  _fns.IsRate10 = function () { return isRateId("rate10"); };
+  _fns.IsRate12 = function () { return isRateId("rate12"); };
+  _fns.IsRate15 = function () { return isRateId("rate15"); };
+  _fns.OnModeContinuous = onModeContinuous;
+  _fns.OnModePage = onModePage;
+  _fns.OnRate075 = onRate075;
+  _fns.OnRate10 = onRate10;
+  _fns.OnRate12 = onRate12;
+  _fns.OnRate15 = onRate15;
   _fns.GetEnabled = onGetEnabled;
   _fns.GetLabel = onGetLabel;
   _fns.OnStartSpeak = onStartSpeak;

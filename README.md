@@ -10,11 +10,11 @@
 
 | 目标 | CPU 架构 + 操作系统 | WPS 要求 | 安装包 |
 | --- | --- | --- | --- |
-| Windows | x86/x64 Windows 10/11 | WPS Office 2019 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.3_windows.exe |
-| 银河麒麟系统 | x64 银河麒麟系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.3_amd64.deb |
-| 银河麒麟系统 | ARM64 银河麒麟系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.3_arm64.deb |
-| UOS系统 | x64 UOS系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.2.3_amd64.deb |
-| UOS系统 | ARM64 UOS系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.2.3_arm64.deb |
+| Windows | x86/x64 Windows 10/11 | WPS Office 2019 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.4_windows.exe |
+| 银河麒麟系统 | x64 银河麒麟系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.4_amd64.deb |
+| 银河麒麟系统 | ARM64 银河麒麟系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | wps-read-aloud-comate_1.2.4_arm64.deb |
+| UOS系统 | x64 UOS系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.2.4_amd64.deb |
+| UOS系统 | ARM64 UOS系统 | WPS Office 2019 for Linux 或更高版本，推荐最新稳定版 | cn.wps-read-aloud-comate_1.2.4_arm64.deb |
 
 通用要求：
 
@@ -104,11 +104,11 @@
 
 | 目标 | 命令或操作 |
 | --- | --- |
-| x86/x64 Windows 10/11 | 运行 dist/wps-read-aloud-comate_1.2.3_windows.exe |
-| x64 银河麒麟系统 | sudo dpkg -i dist/wps-read-aloud-comate_1.2.3_amd64.deb |
-| ARM64 银河麒麟系统 | sudo dpkg -i dist/wps-read-aloud-comate_1.2.3_arm64.deb |
-| x64 UOS系统 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.2.3_amd64.deb |
-| ARM64 UOS系统 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.2.3_arm64.deb |
+| x86/x64 Windows 10/11 | 运行 dist/wps-read-aloud-comate_1.2.4_windows.exe |
+| x64 银河麒麟系统 | sudo dpkg -i dist/wps-read-aloud-comate_1.2.4_amd64.deb |
+| ARM64 银河麒麟系统 | sudo dpkg -i dist/wps-read-aloud-comate_1.2.4_arm64.deb |
+| x64 UOS系统 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.2.4_amd64.deb |
+| ARM64 UOS系统 | sudo dpkg -i dist/cn.wps-read-aloud-comate_1.2.4_arm64.deb |
 
 安装后请彻底退出并重新打开 WPS。Windows 安装器会自动检测 WPS、启动本机朗读服务、写入 publish.xml、注册当前用户自启动项和卸载入口。Linux 安装包会安装 systemd 服务、WPS 加载项注册脚本、说明文件、许可证文件和安装日志。
 
