@@ -2,8 +2,8 @@
 
 软件名称：WPS 文档朗读助手
 软件包：wps-read-aloud-comate
-版本：1.2.2
-发布时间：2026/05/26
+版本：1.2.3
+发布时间：2026/05/28
 开发者：ZHANG JING YAO
 
 ## 适用环境
@@ -18,18 +18,22 @@
 
 ## 修复
 
-- 修复“关于朗读”弹窗中“发布说明”和“第三方声明”无法打开，提示“说明文件加载失败：Failed to fetch”的问题。
-- 修正 1.1.13 引入的 Windows runtime 文档路径回归：说明文件链接不再使用 file 本地路径，统一从本机朗读服务的 docs 接口读取，避免 WPS 内置浏览器跨来源读取被拦截。
+- 加强本地朗读服务安全：CORS 策略从全开放改为校验 Origin，防止恶意网页调用本机朗读接口。
+- 统一 Windows 与 Linux 朗读行为：语速下限、英文逐字符读法、标点停顿缩放、错误消息格式等现在两端一致。
+- Windows 端补齐运行时语速切换（/read/settings）、暂停和恢复（/pause、/resume）功能。
+- 修复启动弹窗 setInterval 未清理导致的资源泄漏。
+- 修正 /health 和 /read/status 接口缺少请求方法校验的问题。
+- Windows 端 HTTP 服务新增 ReadHeaderTimeout 超时设置。
 
 ## 交付文件
 
 | 目标 | 文件 |
 | --- | --- |
-| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.2.2_windows.exe |
-| x64 银河麒麟系统 | dist/wps-read-aloud-comate_1.2.2_amd64.deb |
-| ARM64 银河麒麟系统 | dist/wps-read-aloud-comate_1.2.2_arm64.deb |
-| x64 UOS系统 | dist/cn.wps-read-aloud-comate_1.2.2_amd64.deb |
-| ARM64 UOS系统 | dist/cn.wps-read-aloud-comate_1.2.2_arm64.deb |
+| x86/x64 Windows 10/11 | dist/wps-read-aloud-comate_1.2.3_windows.exe |
+| x64 银河麒麟系统 | dist/wps-read-aloud-comate_1.2.3_amd64.deb |
+| ARM64 银河麒麟系统 | dist/wps-read-aloud-comate_1.2.3_arm64.deb |
+| x64 UOS系统 | dist/cn.wps-read-aloud-comate_1.2.3_amd64.deb |
+| ARM64 UOS系统 | dist/cn.wps-read-aloud-comate_1.2.3_arm64.deb |
 
 ## 已知限制
 
