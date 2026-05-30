@@ -1191,8 +1191,8 @@
       height: 720,
       message: "面向 WPS Office 的本地离线文档朗读加载项。",
       fields: [
-        { label: "版本", value: "1.2.4" },
-        { label: "发布日期", value: "2026/05/29" },
+        { label: "版本", value: "1.2.5" },
+        { label: "发布日期", value: "2026/05/30" },
         { label: "开发者", value: "ZHANG JING YAO" },
         { label: "软件包", value: "wps-read-aloud-comate" },
         { label: "支持系统", value: "x86/x64 Windows 10/11；x64 银河麒麟系统；ARM64 银河麒麟系统；x64 UOS系统；ARM64 UOS系统" },

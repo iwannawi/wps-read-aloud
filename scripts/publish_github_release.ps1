@@ -1,8 +1,8 @@
 param(
   [string]$Owner = "iwannawi",
   [string]$Repo = "wps-read-aloud-comate",
-  [string]$Version = "1.2.4",
-  [string]$ReleaseDate = "2026/05/29",
+  [string]$Version = "1.2.5",
+  [string]$ReleaseDate = "2026/05/30",
   [string]$Tag = "",
   [switch]$PromptToken
 )
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 if ([string]::IsNullOrWhiteSpace($Tag)) {
   $TagDate = ($ReleaseDate -replace "[^0-9]", "")
   if ([string]::IsNullOrWhiteSpace($TagDate)) {
-    throw "ReleaseDate must contain a numeric date, for example 2026/05/29."
+    throw "ReleaseDate must contain a numeric date, for example 2026/05/30."
   }
   $Tag = "v$Version-$TagDate"
 }

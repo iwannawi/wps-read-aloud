@@ -1,12 +1,12 @@
 {
-  "version": "1.2.4",
-  "release_date": "2026/05/29",
+  "version": "1.2.5",
+  "release_date": "2026/05/30",
   "targets": [
     {
       "id": "windows",
       "os": "windows",
       "arch": "386",
-      "artifact": "wps-read-aloud-comate_1.2.4_windows.exe",
+      "artifact": "wps-read-aloud-comate_1.2.5_windows.exe",
       "runtime": "resources/runtime/windows-x86"
     },
     {
@@ -14,7 +14,7 @@
       "os": "linux",
       "distro": "kylin",
       "arch": "amd64",
-      "artifact": "wps-read-aloud-comate_1.2.4_amd64.deb",
+      "artifact": "wps-read-aloud-comate_1.2.5_amd64.deb",
       "runtime": "resources/runtime/linux-amd64"
     },
     {
@@ -22,7 +22,7 @@
       "os": "linux",
       "distro": "kylin",
       "arch": "arm64",
-      "artifact": "wps-read-aloud-comate_1.2.4_arm64.deb",
+      "artifact": "wps-read-aloud-comate_1.2.5_arm64.deb",
       "runtime": "resources/runtime/linux-arm64"
     },
     {
@@ -30,7 +30,7 @@
       "os": "linux",
       "distro": "uos",
       "arch": "amd64",
-      "artifact": "cn.wps-read-aloud-comate_1.2.4_amd64.deb",
+      "artifact": "cn.wps-read-aloud-comate_1.2.5_amd64.deb",
       "runtime": "resources/runtime/linux-amd64"
     },
     {
@@ -38,7 +38,7 @@
       "os": "linux",
       "distro": "uos",
       "arch": "arm64",
-      "artifact": "cn.wps-read-aloud-comate_1.2.4_arm64.deb",
+      "artifact": "cn.wps-read-aloud-comate_1.2.5_arm64.deb",
       "runtime": "resources/runtime/linux-arm64"
     }
   ]

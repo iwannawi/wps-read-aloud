@@ -6,10 +6,10 @@
 
 | CPU 架构 + 操作系统 | 包名 | 文件 |
 | --- | --- | --- |
-| x64 银河麒麟系统 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.2.4_amd64.deb |
-| ARM64 银河麒麟系统 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.2.4_arm64.deb |
-| x64 UOS系统 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.2.4_amd64.deb |
-| ARM64 UOS系统 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.2.4_arm64.deb |
+| x64 银河麒麟系统 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.2.5_amd64.deb |
+| ARM64 银河麒麟系统 | wps-read-aloud-comate | dist/wps-read-aloud-comate_1.2.5_arm64.deb |
+| x64 UOS系统 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.2.5_amd64.deb |
+| ARM64 UOS系统 | cn.wps-read-aloud-comate | dist/cn.wps-read-aloud-comate_1.2.5_arm64.deb |
 
 ## 安装内容
 

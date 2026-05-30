@@ -1,12 +1,12 @@
 Package: wps-read-aloud-comate
-Version: 1.2.4
+Version: 1.2.5
 Section: utils
 Priority: optional
 Architecture: arm64
 Maintainer: ZHANG JING YAO <zhangjingyao@example.invalid>
 Provides: wps-read-aloud
 Description: WPS 文档朗读助手
- Developer: ZHANG JING YAO. Release date: 2026/05/29.
+ Developer: ZHANG JING YAO. Release date: 2026/05/30.
  Supports x64 银河麒麟系统, ARM64 银河麒麟系统, x64 UOS系统 and ARM64 UOS系统. Requires WPS Office 2019 for Linux or later; latest stable version is recommended.
  Provides a WPS JS add-in and local offline TTS daemon. The daemon listens
  only on 127.0.0.1 and uses a bundled Sherpa-onnx VITS fanchen-C Chinese
